@@ -65,6 +65,8 @@ export default function MusicPlayer() {
   const playerIndex = useStore(s => s.playerIndex)
   const playNext = useStore(s => s.playNext)
   const playPrev = useStore(s => s.playPrev)
+  const shuffleMode = useStore(s => s.shuffleMode)
+  const toggleShuffle = useStore(s => s.toggleShuffle)
   const setAudioPlaying = useAudioStore(s => s.setPlaying)
 
   const iframeRef = useRef(null)
@@ -72,6 +74,7 @@ export default function MusicPlayer() {
   const [volume, setVolume] = useState(80)
   const [embedUrl, setEmbedUrl] = useState(null)
   const [embedError, setEmbedError] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   // Sync audio reactivity
   useEffect(() => {
@@ -106,6 +109,7 @@ export default function MusicPlayer() {
     setAudioPlaying(false)
     setIsPlaying(false)
     setEmbedError(false)
+    setCollapsed(false)
   }, [setCurrentTrack, setPlaying, setAudioPlaying])
 
   function handlePrev() {
@@ -126,7 +130,30 @@ export default function MusicPlayer() {
   if (!currentTrack) return null
 
   const hasQueue = playerQueue.length > 1
-  const queueLabel = hasQueue ? `${playerIndex + 1}/${playerQueue.length}` : null
+  const queueLabel = hasQueue ? `${playerIndex + 1} / ${playerQueue.length}` : null
+
+  // Collapsed mini-bar
+  if (collapsed) {
+    return (
+      <div className="music-player music-player--collapsed" role="region" aria-label="Music player (minimized)">
+        <button className="music-player-expand" onClick={() => setCollapsed(false)} aria-label="Expand player" title="Expand">
+          &#9650;
+        </button>
+        <div className="music-player-info music-player-info--collapsed">
+          <span className="music-player-title music-player-title--collapsed">
+            {currentTrack.artist} — {currentTrack.title}
+          </span>
+        </div>
+        {hasQueue && (
+          <button className="music-player-btn" onClick={handlePrev} aria-label="Previous" disabled={!shuffleMode && playerIndex <= 0}>&#9198;</button>
+        )}
+        {hasQueue && (
+          <button className="music-player-btn" onClick={handleNext} aria-label="Next" disabled={!shuffleMode && playerIndex >= playerQueue.length - 1}>&#9197;</button>
+        )}
+        <button className="music-player-close" onClick={handleClose} aria-label="Close">&times;</button>
+      </div>
+    )
+  }
 
   return (
     <div className="music-player" role="region" aria-label={`Music player: ${currentTrack.artist} — ${currentTrack.title}`}>
@@ -161,27 +188,35 @@ export default function MusicPlayer() {
       <div className="music-player-info">
         <div className="music-player-title">
           {currentTrack.artist} — {currentTrack.title}
+          {currentTrack.genre && (
+            <span className="music-player-genre-badge">{currentTrack.genre}</span>
+          )}
         </div>
         <div className="music-player-meta">
           {currentTrack.year && currentTrack.year}
-          {currentTrack.genre && ` · ${currentTrack.genre}`}
+          {queueLabel && <span className="music-player-track-counter">{queueLabel}</span>}
         </div>
       </div>
 
-      {/* Queue indicator */}
-      {queueLabel && (
-        <span className="music-player-queue" aria-label={`Track ${playerIndex + 1} of ${playerQueue.length}`}>{queueLabel}</span>
-      )}
-
       {/* Controls */}
       <div className="music-player-controls" role="group" aria-label="Playback controls">
+        {hasQueue && (
+          <button
+            className={`music-player-btn${shuffleMode ? ' music-player-btn--active' : ''}`}
+            onClick={toggleShuffle}
+            aria-label={shuffleMode ? 'Disable shuffle' : 'Enable shuffle'}
+            title={shuffleMode ? 'Shuffle on' : 'Shuffle off'}
+          >
+            &#8645;
+          </button>
+        )}
         {hasQueue && (
           <button
             className="music-player-btn"
             onClick={handlePrev}
             aria-label="Previous track"
             title="Previous"
-            disabled={playerIndex <= 0}
+            disabled={!shuffleMode && playerIndex <= 0}
           >
             &#9198;
           </button>
@@ -192,12 +227,17 @@ export default function MusicPlayer() {
             onClick={handleNext}
             aria-label="Next track"
             title="Next"
-            disabled={playerIndex >= playerQueue.length - 1}
+            disabled={!shuffleMode && playerIndex >= playerQueue.length - 1}
           >
             &#9197;
           </button>
         )}
       </div>
+
+      {/* Collapse */}
+      <button className="music-player-collapse" onClick={() => setCollapsed(true)} aria-label="Minimize player" title="Minimize">
+        &#9660;
+      </button>
 
       {/* Close */}
       <button className="music-player-close" onClick={handleClose} aria-label="Close music player" title="Close">

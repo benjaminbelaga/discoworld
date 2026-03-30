@@ -21,6 +21,48 @@
   to { transform: translateY(0); }
 }
 
+/* Collapsed mini-bar */
+.music-player--collapsed {
+  height: 36px;
+  padding: 0 10px;
+  gap: 8px;
+}
+.music-player--collapsed .music-player-btn {
+  font-size: 13px;
+  padding: 2px 6px;
+}
+.music-player-info--collapsed {
+  flex: 1;
+  min-width: 0;
+}
+.music-player-title--collapsed {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* Expand / Collapse buttons */
+.music-player-expand,
+.music-player-collapse {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.music-player-expand:hover,
+.music-player-collapse:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* Progress bar — thin line at top (animated pulse when playing) */
 .music-player-progress {
   position: absolute;
@@ -90,6 +132,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .music-player-meta {
   font-family: 'JetBrains Mono', monospace;
@@ -98,6 +143,35 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Genre badge */
+.music-player-genre-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 255, 255, 0.12);
+  color: #0ff;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+/* Track counter (e.g. "3 / 12") */
+.music-player-track-counter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 1px;
+  flex-shrink: 0;
 }
 
 /* Controls */
@@ -125,6 +199,20 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.08);
 }
+.music-player-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* Active shuffle button */
+.music-player-btn--active {
+  color: #0ff;
+  background: rgba(0, 255, 255, 0.08);
+}
+.music-player-btn--active:hover {
+  color: #0ff;
+  background: rgba(0, 255, 255, 0.15);
+}
 
 /* Close */
 .music-player-close {
@@ -141,7 +229,7 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* Queue indicator */
+/* Queue indicator (legacy, now replaced by track counter in meta) */
 .music-player-queue {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
@@ -158,6 +246,10 @@
     gap: 8px;
     bottom: 0;
   }
+  .music-player--collapsed {
+    height: 32px;
+    padding: 0 8px;
+  }
   .music-player-video {
     width: 120px;
     height: 68px;
@@ -166,9 +258,17 @@
   .music-player-queue {
     display: none;
   }
+  .music-player-genre-badge {
+    display: none;
+  }
   .music-player-btn {
     padding: 8px;
     min-width: 44px;
     min-height: 44px;
+  }
+  .music-player--collapsed .music-player-btn {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 4px;
   }
 }

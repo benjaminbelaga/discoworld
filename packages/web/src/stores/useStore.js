@@ -28,6 +28,8 @@ const useStore = create((set) => ({
   currentTrack: null,
   playerQueue: [],
   playerIndex: 0,
+  shuffleMode: false,
+  toggleShuffle: () => set(s => ({ shuffleMode: !s.shuffleMode })),
   setPlaying: (playing) => set({ playing }),
   setCurrentTrack: (track) => set((s) => {
     // If track is in current queue, just update index
@@ -49,6 +51,11 @@ const useStore = create((set) => ({
     playing: queue.length > 0,
   }),
   playNext: () => set((s) => {
+    if (s.shuffleMode && s.playerQueue.length > 1) {
+      let rand
+      do { rand = Math.floor(Math.random() * s.playerQueue.length) } while (rand === s.playerIndex)
+      return { playerIndex: rand, currentTrack: s.playerQueue[rand], playing: true }
+    }
     const next = s.playerIndex + 1
     if (next >= s.playerQueue.length) return {}
     return { playerIndex: next, currentTrack: s.playerQueue[next], playing: true }
