@@ -45,7 +45,8 @@ with open(INPUT) as f:
         artists_str = ", ".join(a["name"] for a in r.get("artists", [])[:3])
         label_str = r["labels"][0]["name"] if r.get("labels") else ""
         catno = r["labels"][0]["catno"] if r.get("labels") else ""
-        youtube_url = r["videos"][0]["url"] if r["videos"] else ""
+        yt_videos = [v for v in r.get("videos", []) if "youtube.com" in v.get("url", "") or "youtu.be" in v.get("url", "")]
+        youtube_url = yt_videos[0]["url"] if yt_videos else ""
 
         simplified = {
             "id": r["id"],

@@ -137,9 +137,9 @@ export default function GenrePanel() {
       const top10 = matches.slice(0, 10)
       setDiscogsReleases(top10)
 
-      // Auto-play first track with a YouTube link
+      // Auto-play first track with a YouTube link (only on genre change, not on track change)
       const playable = top10.find(r => r.youtube)
-      if (playable && !currentTrack) {
+      if (playable) {
         const queue = top10
           .filter(r => r.youtube)
           .map(r => ({ artist: r.artist, title: r.title, year: r.year, genre: activeGenre.name, youtube: r.youtube }))
@@ -160,17 +160,19 @@ export default function GenrePanel() {
         })
         .catch(() => setDiscogsReleases([]))
     }
-  }, [activeGenre, currentTrack, setPlayerQueue])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGenre, setPlayerQueue])
 
-  // Auto-play classic tracks if no Discogs releases matched and nothing playing
+  // Auto-play classic tracks if no Discogs releases matched
   useEffect(() => {
-    if (!activeGenre || currentTrack) return
+    if (!activeGenre) return
     const tracks = releases[activeGenre.slug] || []
     const playable = tracks.filter(t => t.youtube)
     if (playable.length > 0 && discogsReleases.length === 0) {
       setPlayerQueue(playable, 0)
     }
-  }, [activeGenre, releases, discogsReleases, currentTrack, setPlayerQueue])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGenre, releases, discogsReleases, setPlayerQueue])
 
   const isTrackPlaying = (track) => {
     if (!currentTrack || !playing) return false

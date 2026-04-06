@@ -40,7 +40,7 @@ function buildYouTubeSearchUrl(track) {
  * Embed URL params shared across all embed types.
  */
 function embedParams() {
-  return new URLSearchParams({
+  const params = new URLSearchParams({
     autoplay: '1',
     controls: '1',
     modestbranding: '1',
@@ -48,7 +48,10 @@ function embedParams() {
     iv_load_policy: '3',
     fs: '0',
     playsinline: '1',
+    enablejsapi: '1',
   })
+  try { params.set('origin', window.location.origin) } catch {}
+  return params
 }
 
 /**
@@ -131,18 +134,11 @@ export default function MusicPlayer() {
       return
     }
 
-    // No direct ID — jump to search embed fallback
-    setFallbackStage(1)
-    const searchUrl = buildSearchEmbedUrl(currentTrack, false)
-    if (searchUrl) {
-      setEmbedUrl(searchUrl)
-      setIsPlaying(true)
-    } else {
-      // Can't even build a query — show search button immediately
-      setEmbedUrl(null)
-      setShowSearchButton(true)
-      setIsPlaying(false)
-    }
+    // No direct video ID — skip dead search embed, show search button immediately
+    setFallbackStage(3)
+    setEmbedUrl(null)
+    setShowSearchButton(true)
+    setIsPlaying(false)
   }, [currentTrack])
 
   // Fallback timeout: if search embed doesn't seem to play within 5s, try next stage
