@@ -117,11 +117,6 @@ function CameraAnimator({ controlsRef }) {
   return null
 }
 
-// Fog — static values (soundscape audio-reactivity disabled)
-function AudioReactiveFog() {
-  return <fog attach="fog" args={['#060610', 55, 150]} />
-}
-
 // Bloom — static values (soundscape audio-reactivity disabled)
 function AudioReactiveBloom() {
   return (
@@ -174,7 +169,6 @@ function Scene({ isMobile }) {
       />
 
       <CameraAnimator controlsRef={controlsRef} />
-      <AudioReactiveFog />
       {!isMobile && <AudioReactiveBloom />}
 
       <AdaptiveDpr pixelated />

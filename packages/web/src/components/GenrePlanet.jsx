@@ -107,9 +107,9 @@ function buildPlanetMesh(data) {
     const dir = centerToDir(t.center, worldRadius)
     // Approximate angular radius from area (area in flat coords → angular fraction)
     const angularRadius = Math.sqrt(t.area) / worldRadius * 1.2
-    const biome = BIOME_CONFIG[t.biome] || BIOME_CONFIG['unknown']
+    const biomeConfig = BIOME_CONFIG[t.biome] || BIOME_CONFIG['unknown']
     return {
-      dir, angularRadius, biome, elevation: t.elevation,
+      dir, angularRadius, biome: t.biome || 'unknown', biomeConfig, elevation: t.elevation,
       color: new THREE.Color(t.color), slug: t.slug, name: t.name,
       scene: t.scene, release_count: t.release_count,
     }
@@ -159,7 +159,7 @@ function buildPlanetMesh(data) {
 
     if (bestDist < 1.0 && bestIdx >= 0) {
       const t = terrData[bestIdx]
-      const b = t.biome
+      const b = t.biomeConfig
       const falloff = 1.0 - Math.pow(bestDist, 0.7)
       const noise = fbm(nx * b.noiseScale + 50, ny * b.noiseScale, nz * b.noiseScale + 50, b.octaves)
       height = falloff * (b.baseHeight + Math.abs(noise) * 0.06 * b.heightMul) * (0.5 + t.elevation)
@@ -356,78 +356,6 @@ function buildOceanMesh() {
   const mesh = new THREE.Mesh(geometry, material)
   mesh.userData.isOcean = true
   return mesh
-}
-
-// ---- Cloud layer (subtle transparent noise sphere) ----
-const CLOUD_VERTEX = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vViewPos;
-  varying vec2 vUv;
-  void main() {
-    vNormal = normalize(normalMatrix * normal);
-    vViewPos = (modelViewMatrix * vec4(position, 1.0)).xyz;
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`
-
-const CLOUD_FRAGMENT = /* glsl */ `
-  uniform float uTime;
-  varying vec3 vNormal;
-  varying vec3 vViewPos;
-  varying vec2 vUv;
-
-  // Simple value noise
-  float hash21(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
-  }
-  float vnoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = hash21(i);
-    float b = hash21(i + vec2(1.0, 0.0));
-    float c = hash21(i + vec2(0.0, 1.0));
-    float d = hash21(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-  }
-  float fbmCloud(vec2 p) {
-    float val = 0.0, amp = 0.5;
-    for (int i = 0; i < 4; i++) {
-      val += amp * vnoise(p);
-      p *= 2.1; amp *= 0.5;
-    }
-    return val;
-  }
-
-  void main() {
-    vec2 uv = vUv + vec2(uTime * 0.008, uTime * 0.003);
-    float cloud = fbmCloud(uv * 6.0);
-    cloud = smoothstep(0.35, 0.65, cloud);
-    // Fade at edges (Fresnel-like)
-    vec3 viewDir = normalize(-vViewPos);
-    float rim = 1.0 - max(dot(vNormal, viewDir), 0.0);
-    cloud *= (1.0 - rim * rim * 0.8);
-    gl_FragColor = vec4(1.0, 1.0, 1.0, cloud * 0.07);
-  }
-`
-
-function buildCloudMesh() {
-  const geometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.008, 64, 64)
-  const material = new THREE.ShaderMaterial({
-    vertexShader: CLOUD_VERTEX,
-    fragmentShader: CLOUD_FRAGMENT,
-    uniforms: {
-      uTime: { value: 0 },
-    },
-    transparent: true,
-    depthWrite: false,
-    side: THREE.FrontSide,
-    blending: THREE.AdditiveBlending,
-  })
-  return new THREE.Mesh(geometry, material)
 }
 
 // ---- City lights (emissive dots at territory centers on dark side) ----
@@ -690,7 +618,6 @@ export default function GenrePlanet({ paused = false }) {
   const mouseRef = useRef(new THREE.Vector2())
   const clickStartRef = useRef({ x: 0, y: 0 })
   const oceanRef = useRef(null)
-  const cloudRef = useRef(null)
   const hoveredTerritoryRef = useRef(null)
   const selectedTerritoryRef = useRef(null)
   const selectionPulseRef = useRef(0)
@@ -754,6 +681,7 @@ export default function GenrePlanet({ paused = false }) {
           const duration = 1200
           const startTime = performance.now()
           const flyTo = () => {
+            if (!cameraRef.current) return
             const elapsed = performance.now() - startTime
             const t = Math.min(1, elapsed / duration)
             const eased = t < 0.5
@@ -848,11 +776,6 @@ export default function GenrePlanet({ paused = false }) {
     scene.add(oceanMesh)
     oceanRef.current = oceanMesh
 
-    // Cloud layer
-    const cloudMesh = buildCloudMesh()
-    scene.add(cloudMesh)
-    cloudRef.current = cloudMesh
-
     // Bloom
     const { composer, resize: resizeBloom, cleanup: cleanupBloom } = setupBloom(
       renderer, scene, camera
@@ -860,7 +783,7 @@ export default function GenrePlanet({ paused = false }) {
     composerRef.current = composer
 
     // Track additional meshes for cleanup
-    const extraMeshes = [nebulaMesh, cloudMesh]
+    const extraMeshes = [nebulaMesh]
 
     // Hover raycaster for territory highlighting
     let hoverMouse = new THREE.Vector2(-999, -999)
@@ -887,12 +810,6 @@ export default function GenrePlanet({ paused = false }) {
       if (oceanRef.current) {
         oceanRef.current.material.uniforms.uTime.value = elapsedTime
       }
-      // Update clouds (slow rotation)
-      if (cloudRef.current) {
-        cloudRef.current.material.uniforms.uTime.value = elapsedTime
-        cloudRef.current.rotation.y += delta * 0.005
-      }
-
       // Hover detection (throttled: every 3 frames)
       if (planetMeshRef.current && Math.floor(elapsedTime * 60) % 3 === 0) {
         hoverRaycaster.setFromCamera(hoverMouse, camera)
@@ -1002,7 +919,6 @@ export default function GenrePlanet({ paused = false }) {
         oceanRef.current.material.dispose()
         oceanRef.current = null
       }
-      cloudRef.current = null
       cleanupAtmosphere()
       cleanupStarfield()
       cleanupBloom()
