@@ -1,6 +1,18 @@
 import { create } from 'zustand'
 
-const useStore = create((set) => ({
+// Load favorites from localStorage
+function loadFavorites() {
+  try {
+    const raw = localStorage.getItem('discoworld-favorites')
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function saveFavorites(favorites) {
+  try { localStorage.setItem('discoworld-favorites', JSON.stringify(favorites)) } catch {}
+}
+
+const useStore = create((set, get) => ({
   // Timeline
   year: 2026,
   setYear: (year) => set({ year }),
@@ -57,7 +69,10 @@ const useStore = create((set) => ({
       return { playerIndex: rand, currentTrack: s.playerQueue[rand], playing: true }
     }
     const next = s.playerIndex + 1
-    if (next >= s.playerQueue.length) return {}
+    if (next >= s.playerQueue.length) {
+      // Loop back to the beginning of the queue
+      return { playerIndex: 0, currentTrack: s.playerQueue[0], playing: true }
+    }
     return { playerIndex: next, currentTrack: s.playerQueue[next], playing: true }
   }),
   playPrev: () => set((s) => {
@@ -65,6 +80,36 @@ const useStore = create((set) => ({
     if (prev < 0) return {}
     return { playerIndex: prev, currentTrack: s.playerQueue[prev], playing: true }
   }),
+
+  // Favorites
+  favorites: loadFavorites(),
+  toggleFavorite: (track) => set((s) => {
+    const exists = s.favorites.some(
+      f => f.artist === track.artist && f.title === track.title
+    )
+    const updated = exists
+      ? s.favorites.filter(f => !(f.artist === track.artist && f.title === track.title))
+      : [...s.favorites, {
+          artist: track.artist || '',
+          title: track.title || '',
+          year: track.year || null,
+          genre: track.genre || null,
+          youtube: track.youtube || null,
+          discogsId: track.discogsId || null,
+          addedAt: new Date().toISOString(),
+        }]
+    saveFavorites(updated)
+    return { favorites: updated }
+  }),
+  isFavorite: (track) => {
+    if (!track) return false
+    return get().favorites.some(
+      f => f.artist === track.artist && f.title === track.title
+    )
+  },
+  exportFavorites: () => {
+    return JSON.stringify(get().favorites, null, 2)
+  },
 
   // UI
   sidebarOpen: false,

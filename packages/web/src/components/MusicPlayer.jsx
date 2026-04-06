@@ -28,15 +28,6 @@ function buildSearchQuery(track, artistOnly = false) {
 }
 
 /**
- * Build a YouTube search URL that opens in a new tab.
- */
-function buildYouTubeSearchUrl(track) {
-  const query = buildSearchQuery(track)
-  if (!query) return null
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
-}
-
-/**
  * Embed URL params shared across all embed types.
  */
 function embedParams() {
@@ -56,7 +47,6 @@ function embedParams() {
 
 /**
  * Build the YouTube embed URL for a direct video ID.
- * Returns null if the track has no youtube field or invalid URL.
  */
 function buildDirectEmbedUrl(track) {
   const videoId = extractVideoId(track?.youtube)
@@ -65,8 +55,7 @@ function buildDirectEmbedUrl(track) {
 }
 
 /**
- * Build a search-based embed URL (listType=search — deprecated but still works in some browsers).
- * Used as a best-effort attempt before showing the manual search button.
+ * Build a search-based embed URL (listType=search).
  */
 function buildSearchEmbedUrl(track, artistOnly = false) {
   const query = buildSearchQuery(track, artistOnly)
@@ -93,9 +82,9 @@ export default function MusicPlayer() {
   const [embedError, setEmbedError] = useState(false)
   const [showSearchButton, setShowSearchButton] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
 
-  // Track which fallback stage we're at:
-  // 0 = direct video ID, 1 = search embed (full query), 2 = search embed (artist only), 3 = gave up
+  // Fallback stage: 0=direct, 1=search full, 2=search artist, 3=gave up
   const [fallbackStage, setFallbackStage] = useState(0)
   const fallbackTimerRef = useRef(null)
 
@@ -119,14 +108,15 @@ export default function MusicPlayer() {
       setShowSearchButton(false)
       setIsPlaying(false)
       setFallbackStage(0)
+      setShowVideo(false)
       return
     }
 
     setShowSearchButton(false)
     setEmbedError(false)
     setFallbackStage(0)
+    setShowVideo(false)
 
-    // Try direct video ID first
     const directUrl = buildDirectEmbedUrl(currentTrack)
     if (directUrl) {
       setEmbedUrl(directUrl)
@@ -134,21 +124,20 @@ export default function MusicPlayer() {
       return
     }
 
-    // No direct video ID — skip dead search embed, show search button immediately
+    // No direct video ID — show search button
     setFallbackStage(3)
     setEmbedUrl(null)
     setShowSearchButton(true)
     setIsPlaying(false)
   }, [currentTrack])
 
-  // Fallback timeout: if search embed doesn't seem to play within 5s, try next stage
+  // Fallback timeout
   useEffect(() => {
     if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
     if (!currentTrack || !embedUrl || fallbackStage === 0) return
 
     fallbackTimerRef.current = setTimeout(() => {
       if (fallbackStage === 1) {
-        // Full search failed — try artist-only search
         setFallbackStage(2)
         const artistUrl = buildSearchEmbedUrl(currentTrack, true)
         if (artistUrl) {
@@ -159,7 +148,6 @@ export default function MusicPlayer() {
           setIsPlaying(false)
         }
       } else if (fallbackStage === 2) {
-        // Artist-only search also failed — show search button, don't auto-skip
         setFallbackStage(3)
         setShowSearchButton(true)
         setIsPlaying(false)
@@ -171,41 +159,39 @@ export default function MusicPlayer() {
     }
   }, [fallbackStage, embedUrl, currentTrack])
 
-  // Listen for postMessage from YouTube iframe to detect playback
+  // Listen for postMessage from YouTube iframe
   useEffect(() => {
     if (!embedUrl) return
 
     function handleMessage(event) {
-      // YouTube sends messages from its embed origin
       if (!event.origin.includes('youtube.com')) return
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
-        // YouTube IFrame API sends info with playerState: 1 = playing
         if (data?.event === 'onStateChange' && data?.info === 1) {
-          // Video is playing — cancel fallback timer
           if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
           setShowSearchButton(false)
           setIsPlaying(true)
         }
-        // playerState 150 or -1 can indicate "unplayable"
+        if (data?.event === 'onStateChange' && data?.info === 0) {
+          playNext()
+        }
         if (data?.event === 'onError' || (data?.event === 'onStateChange' && data?.info === -1)) {
           setEmbedError(true)
         }
       } catch {
-        // Not JSON — ignore
+        // Not JSON
       }
     }
 
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [embedUrl])
+  }, [embedUrl, playNext])
 
   // When iframe reports an error, advance fallback stage
   useEffect(() => {
     if (!embedError || !currentTrack) return
 
     if (fallbackStage === 0) {
-      // Direct embed failed — try search
       setFallbackStage(1)
       setEmbedError(false)
       const searchUrl = buildSearchEmbedUrl(currentTrack, false)
@@ -216,7 +202,6 @@ export default function MusicPlayer() {
         setIsPlaying(false)
       }
     } else if (fallbackStage === 1) {
-      // Full search failed — try artist only
       setFallbackStage(2)
       setEmbedError(false)
       const artistUrl = buildSearchEmbedUrl(currentTrack, true)
@@ -228,7 +213,6 @@ export default function MusicPlayer() {
         setIsPlaying(false)
       }
     } else {
-      // All failed — show button, don't auto-skip
       setFallbackStage(3)
       setShowSearchButton(true)
       setIsPlaying(false)
@@ -247,15 +231,11 @@ export default function MusicPlayer() {
     setShowSearchButton(false)
     setFallbackStage(0)
     setCollapsed(false)
+    setShowVideo(false)
   }, [setCurrentTrack, setPlaying, setAudioPlaying])
 
-  function handlePrev() {
-    playPrev()
-  }
-
-  function handleNext() {
-    playNext()
-  }
+  function handlePrev() { playPrev() }
+  function handleNext() { playNext() }
 
   function handleOpenYouTube() {
     const query = buildSearchQuery(currentTrack)
@@ -266,6 +246,10 @@ export default function MusicPlayer() {
 
   if (!currentTrack) return null
 
+  const videoId = extractVideoId(currentTrack.youtube)
+  const thumbnailUrl = videoId
+    ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+    : null
   const hasQueue = playerQueue.length > 1
   const queueLabel = hasQueue ? `${playerIndex + 1} / ${playerQueue.length}` : null
 
@@ -288,26 +272,53 @@ export default function MusicPlayer() {
           <button className="music-player-btn" onClick={handleNext} aria-label="Next" disabled={!shuffleMode && playerIndex >= playerQueue.length - 1}>&#9197;</button>
         )}
         <button className="music-player-close" onClick={handleClose} aria-label="Close">&times;</button>
+
+        {/* Hidden iframe for audio playback in collapsed mode */}
+        {embedUrl && !showSearchButton && (
+          <iframe
+            ref={iframeRef}
+            className="music-player-iframe-hidden"
+            src={embedUrl}
+            title={`Now playing: ${currentTrack.artist} — ${currentTrack.title}`}
+            allow="autoplay; encrypted-media"
+            allowFullScreen={false}
+            onError={() => setEmbedError(true)}
+          />
+        )}
       </div>
     )
   }
 
   return (
     <div className="music-player" role="region" aria-label={`Music player: ${currentTrack.artist} — ${currentTrack.title}`}>
-      {/* Progress bar — decorative thin line at top */}
+      {/* Progress bar */}
       <div className="music-player-progress" style={{ width: isPlaying ? '100%' : '0%' }} aria-hidden="true" />
 
-      {/* YouTube video thumbnail — replaces spinning vinyl disc */}
-      <div className="music-player-video">
-        {embedUrl && !showSearchButton ? (
-          <iframe
-            ref={iframeRef}
-            className="music-player-iframe"
-            src={embedUrl}
-            title={`Now playing: ${currentTrack.artist} — ${currentTrack.title}`}
-            allow="autoplay; encrypted-media"
-            allowFullScreen={false}
-            onError={() => setEmbedError(true)}
+      {/* Hidden iframe for audio — always present, never visible */}
+      {embedUrl && !showSearchButton && (
+        <iframe
+          ref={iframeRef}
+          className="music-player-iframe-hidden"
+          src={embedUrl}
+          title={`Now playing: ${currentTrack.artist} — ${currentTrack.title}`}
+          allow="autoplay; encrypted-media"
+          allowFullScreen={false}
+          onError={() => setEmbedError(true)}
+        />
+      )}
+
+      {/* Thumbnail area */}
+      <div
+        className="music-player-thumb"
+        onMouseEnter={() => setShowVideo(true)}
+        onMouseLeave={() => setShowVideo(false)}
+      >
+        {thumbnailUrl ? (
+          <img
+            className="music-player-thumb-img"
+            src={thumbnailUrl}
+            alt={`${currentTrack.artist} — ${currentTrack.title}`}
+            draggable={false}
           />
         ) : (
           <button
@@ -316,40 +327,45 @@ export default function MusicPlayer() {
             aria-label={`Search ${currentTrack.artist} — ${currentTrack.title} on YouTube`}
             title="Search on YouTube"
           >
-            {showSearchButton ? '🔍 Search YouTube' : '▶ YT'}
+            {showSearchButton ? 'YT' : '?'}
           </button>
+        )}
+
+        {/* PiP video popup on hover */}
+        {showVideo && embedUrl && !showSearchButton && (
+          <div className="music-player-pip">
+            <iframe
+              className="music-player-pip-iframe"
+              src={embedUrl}
+              title={`Video: ${currentTrack.artist} — ${currentTrack.title}`}
+              allow="autoplay; encrypted-media"
+              allowFullScreen={false}
+            />
+          </div>
         )}
       </div>
 
       {/* Track info */}
       <div className="music-player-info">
         <div className="music-player-title">
-          {currentTrack.artist} — {currentTrack.title}
+          <span className="music-player-artist">{currentTrack.artist}</span>
+          <span className="music-player-separator"> — </span>
+          <span className="music-player-track-name">{currentTrack.title}</span>
           {currentTrack.genre && (
             <span className="music-player-genre-badge">{currentTrack.genre}</span>
           )}
         </div>
         <div className="music-player-meta">
-          {currentTrack.year && currentTrack.year}
+          {currentTrack.year && <span>{currentTrack.year}</span>}
           {queueLabel && <span className="music-player-track-counter">{queueLabel}</span>}
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Center playback controls */}
       <div className="music-player-controls" role="group" aria-label="Playback controls">
         {hasQueue && (
           <button
-            className={`music-player-btn${shuffleMode ? ' music-player-btn--active' : ''}`}
-            onClick={toggleShuffle}
-            aria-label={shuffleMode ? 'Disable shuffle' : 'Enable shuffle'}
-            title={shuffleMode ? 'Shuffle on' : 'Shuffle off'}
-          >
-            &#8645;
-          </button>
-        )}
-        {hasQueue && (
-          <button
-            className="music-player-btn"
+            className="music-player-btn music-player-btn--nav"
             onClick={handlePrev}
             aria-label="Previous track"
             title="Previous"
@@ -358,9 +374,17 @@ export default function MusicPlayer() {
             &#9198;
           </button>
         )}
+        <button
+          className="music-player-btn music-player-btn--play"
+          onClick={handleOpenYouTube}
+          aria-label={isPlaying ? 'Playing' : 'Open on YouTube'}
+          title={isPlaying ? 'Playing' : 'Open on YouTube'}
+        >
+          {isPlaying ? '\u23F8' : '\u25B6'}
+        </button>
         {hasQueue && (
           <button
-            className="music-player-btn"
+            className="music-player-btn music-player-btn--nav"
             onClick={handleNext}
             aria-label="Next track"
             title="Next"
@@ -371,15 +395,28 @@ export default function MusicPlayer() {
         )}
       </div>
 
-      {/* Collapse */}
-      <button className="music-player-collapse" onClick={() => setCollapsed(true)} aria-label="Minimize player" title="Minimize">
-        &#9660;
-      </button>
-
-      {/* Close */}
-      <button className="music-player-close" onClick={handleClose} aria-label="Close music player" title="Close">
-        &times;
-      </button>
+      {/* Right-side actions */}
+      <div className="music-player-actions" role="group" aria-label="Player actions">
+        {hasQueue && (
+          <button
+            className={`music-player-btn music-player-btn--sm${shuffleMode ? ' music-player-btn--active' : ''}`}
+            onClick={toggleShuffle}
+            aria-label={shuffleMode ? 'Disable shuffle' : 'Enable shuffle'}
+            title={shuffleMode ? 'Shuffle on' : 'Shuffle off'}
+          >
+            &#8645;
+          </button>
+        )}
+        {queueLabel && (
+          <span className="music-player-queue-badge" title="Queue position">{queueLabel}</span>
+        )}
+        <button className="music-player-btn music-player-btn--sm" onClick={() => setCollapsed(true)} aria-label="Minimize player" title="Minimize">
+          &#9660;
+        </button>
+        <button className="music-player-btn music-player-btn--sm music-player-btn--close" onClick={handleClose} aria-label="Close music player" title="Close">
+          &times;
+        </button>
+      </div>
     </div>
   )
 }
