@@ -21,47 +21,19 @@ function extractVideoId(url) {
 /**
  * Build a search query string for YouTube.
  */
-function buildSearchQuery(track, artistOnly = false) {
+function buildSearchQuery(track) {
   if (!track) return ''
-  if (artistOnly) return (track.artist || '').trim()
   return `${track.artist || ''} ${track.title || ''} full`.trim()
 }
 
 /**
- * Embed URL params shared across all embed types.
+ * Format seconds to m:ss display.
  */
-function embedParams() {
-  const params = new URLSearchParams({
-    autoplay: '1',
-    controls: '1',
-    modestbranding: '1',
-    rel: '0',
-    iv_load_policy: '3',
-    fs: '0',
-    playsinline: '1',
-    enablejsapi: '1',
-  })
-  try { params.set('origin', window.location.origin) } catch {}
-  return params
-}
-
-/**
- * Build the YouTube embed URL for a direct video ID.
- */
-function buildDirectEmbedUrl(track) {
-  const videoId = extractVideoId(track?.youtube)
-  if (!videoId) return null
-  return `https://www.youtube.com/embed/${videoId}?${embedParams()}`
-}
-
-/**
- * Build a search-based embed URL (listType=search).
- */
-function buildSearchEmbedUrl(track, artistOnly = false) {
-  const query = buildSearchQuery(track, artistOnly)
-  if (!query) return null
-  const params = embedParams()
-  return `https://www.youtube.com/embed?${params}&listType=search&list=${encodeURIComponent(query)}`
+function formatTime(s) {
+  if (!s || isNaN(s)) return '0:00'
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 export default function MusicPlayer() {
@@ -76,162 +48,185 @@ export default function MusicPlayer() {
   const toggleShuffle = useStore(s => s.toggleShuffle)
   const setAudioPlaying = useAudioStore(s => s.setPlaying)
 
-  const iframeRef = useRef(null)
+  const playerRef = useRef(null)
+  const progressInterval = useRef(null)
+  const apiReadyRef = useRef(false)
+
   const [isPlaying, setIsPlaying] = useState(false)
-  const [embedUrl, setEmbedUrl] = useState(null)
   const [embedError, setEmbedError] = useState(false)
   const [showSearchButton, setShowSearchButton] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
-
-  // Fallback stage: 0=direct, 1=search full, 2=search artist, 3=gave up
-  const [fallbackStage, setFallbackStage] = useState(0)
-  const fallbackTimerRef = useRef(null)
+  const [progress, setProgress] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
 
   // Sync audio reactivity
   useEffect(() => {
     setAudioPlaying(!!currentTrack)
   }, [currentTrack, setAudioPlaying])
 
-  // Clear fallback timer on unmount
+  // Load YouTube IFrame API once
   useEffect(() => {
-    return () => {
-      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
+    if (window.YT && window.YT.Player) {
+      apiReadyRef.current = true
+      return
     }
+    if (document.querySelector('script[src*="youtube.com/iframe_api"]')) return
+
+    window.onYouTubeIframeAPIReady = () => {
+      apiReadyRef.current = true
+      // Trigger re-render by dispatching a custom event
+      window.dispatchEvent(new Event('yt-api-ready'))
+    }
+    const tag = document.createElement('script')
+    tag.src = 'https://www.youtube.com/iframe_api'
+    document.head.appendChild(tag)
   }, [])
 
-  // Build embed URL when track changes
+  // Listen for API ready if it wasn't loaded yet
+  const [ytReady, setYtReady] = useState(() => !!(window.YT && window.YT.Player))
+  useEffect(() => {
+    if (ytReady) return
+    function onReady() {
+      apiReadyRef.current = true
+      setYtReady(true)
+    }
+    window.addEventListener('yt-api-ready', onReady)
+    return () => window.removeEventListener('yt-api-ready', onReady)
+  }, [ytReady])
+
+  // Stable callback refs for playNext to avoid re-creating player on playNext change
+  const playNextRef = useRef(playNext)
+  useEffect(() => { playNextRef.current = playNext }, [playNext])
+
+  // Create/destroy YT.Player when track changes
   useEffect(() => {
     if (!currentTrack) {
-      setEmbedUrl(null)
+      // Destroy player
+      if (playerRef.current) {
+        playerRef.current.destroy()
+        playerRef.current = null
+      }
+      if (progressInterval.current) clearInterval(progressInterval.current)
+      setIsPlaying(false)
       setEmbedError(false)
       setShowSearchButton(false)
-      setIsPlaying(false)
-      setFallbackStage(0)
+      setProgress(0)
+      setDuration(0)
+      setCurrentTime(0)
       setShowVideo(false)
       return
     }
 
-    setShowSearchButton(false)
-    setEmbedError(false)
-    setFallbackStage(0)
-    setShowVideo(false)
-
-    const directUrl = buildDirectEmbedUrl(currentTrack)
-    if (directUrl) {
-      setEmbedUrl(directUrl)
-      setIsPlaying(true)
+    const videoId = extractVideoId(currentTrack.youtube)
+    if (!videoId) {
+      // No direct video ID — show search button
+      setShowSearchButton(true)
+      setIsPlaying(false)
       return
     }
 
-    // No direct video ID — show search button
-    setFallbackStage(3)
-    setEmbedUrl(null)
-    setShowSearchButton(true)
-    setIsPlaying(false)
-  }, [currentTrack])
+    if (!ytReady || !window.YT?.Player) return
 
-  // Fallback timeout
-  useEffect(() => {
-    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
-    if (!currentTrack || !embedUrl || fallbackStage === 0) return
+    setShowSearchButton(false)
+    setEmbedError(false)
+    setProgress(0)
+    setDuration(0)
+    setCurrentTime(0)
 
-    fallbackTimerRef.current = setTimeout(() => {
-      if (fallbackStage === 1) {
-        setFallbackStage(2)
-        const artistUrl = buildSearchEmbedUrl(currentTrack, true)
-        if (artistUrl) {
-          setEmbedUrl(artistUrl)
-        } else {
-          setFallbackStage(3)
-          setShowSearchButton(true)
+    // Destroy previous player
+    if (playerRef.current) {
+      playerRef.current.destroy()
+      playerRef.current = null
+    }
+    if (progressInterval.current) clearInterval(progressInterval.current)
+
+    playerRef.current = new window.YT.Player('yt-player-hidden', {
+      videoId,
+      playerVars: {
+        autoplay: 1,
+        controls: 0,
+        modestbranding: 1,
+        rel: 0,
+        enablejsapi: 1,
+        playsinline: 1,
+        origin: window.location.origin,
+      },
+      events: {
+        onReady: (e) => {
+          const d = e.target.getDuration()
+          setDuration(d)
+          setIsPlaying(true)
+          // Poll progress
+          if (progressInterval.current) clearInterval(progressInterval.current)
+          progressInterval.current = setInterval(() => {
+            if (playerRef.current?.getCurrentTime) {
+              const t = playerRef.current.getCurrentTime()
+              const dur = playerRef.current.getDuration()
+              setCurrentTime(t)
+              setDuration(dur)
+              setProgress(dur > 0 ? t / dur : 0)
+            }
+          }, 500)
+        },
+        onStateChange: (e) => {
+          // 0=ended, 1=playing, 2=paused
+          if (e.data === 0) playNextRef.current()
+          if (e.data === 1) setIsPlaying(true)
+          if (e.data === 2) setIsPlaying(false)
+        },
+        onError: () => {
+          setEmbedError(true)
           setIsPlaying(false)
-        }
-      } else if (fallbackStage === 2) {
-        setFallbackStage(3)
-        setShowSearchButton(true)
-        setIsPlaying(false)
-      }
-    }, 5000)
+        },
+      },
+    })
 
     return () => {
-      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
+      if (progressInterval.current) clearInterval(progressInterval.current)
     }
-  }, [fallbackStage, embedUrl, currentTrack])
+  }, [currentTrack, ytReady])
 
-  // Listen for postMessage from YouTube iframe
-  useEffect(() => {
-    if (!embedUrl) return
-
-    function handleMessage(event) {
-      if (!event.origin.includes('youtube.com')) return
-      try {
-        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
-        if (data?.event === 'onStateChange' && data?.info === 1) {
-          if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
-          setShowSearchButton(false)
-          setIsPlaying(true)
-        }
-        if (data?.event === 'onStateChange' && data?.info === 0) {
-          playNext()
-        }
-        if (data?.event === 'onError' || (data?.event === 'onStateChange' && data?.info === -1)) {
-          setEmbedError(true)
-        }
-      } catch {
-        // Not JSON
-      }
+  // Seek handler
+  function handleSeek(e) {
+    const bar = e.currentTarget
+    const rect = bar.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    if (playerRef.current?.seekTo && duration > 0) {
+      playerRef.current.seekTo(ratio * duration, true)
+      setProgress(ratio)
+      setCurrentTime(ratio * duration)
     }
+  }
 
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [embedUrl, playNext])
-
-  // When iframe reports an error, advance fallback stage
-  useEffect(() => {
-    if (!embedError || !currentTrack) return
-
-    if (fallbackStage === 0) {
-      setFallbackStage(1)
-      setEmbedError(false)
-      const searchUrl = buildSearchEmbedUrl(currentTrack, false)
-      if (searchUrl) {
-        setEmbedUrl(searchUrl)
-      } else {
-        setShowSearchButton(true)
-        setIsPlaying(false)
-      }
-    } else if (fallbackStage === 1) {
-      setFallbackStage(2)
-      setEmbedError(false)
-      const artistUrl = buildSearchEmbedUrl(currentTrack, true)
-      if (artistUrl) {
-        setEmbedUrl(artistUrl)
-      } else {
-        setFallbackStage(3)
-        setShowSearchButton(true)
-        setIsPlaying(false)
-      }
+  // Play/Pause toggle
+  function handlePlayPause() {
+    if (!playerRef.current) return
+    if (isPlaying) {
+      playerRef.current.pauseVideo()
     } else {
-      setFallbackStage(3)
-      setShowSearchButton(true)
-      setIsPlaying(false)
-      setEmbedError(false)
+      playerRef.current.playVideo()
     }
-  }, [embedError, currentTrack, fallbackStage])
+  }
 
   const handleClose = useCallback(() => {
-    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current)
-    setEmbedUrl(null)
+    if (playerRef.current) {
+      playerRef.current.destroy()
+      playerRef.current = null
+    }
+    if (progressInterval.current) clearInterval(progressInterval.current)
     setCurrentTrack(null)
     setPlaying(false)
     setAudioPlaying(false)
     setIsPlaying(false)
     setEmbedError(false)
     setShowSearchButton(false)
-    setFallbackStage(0)
     setCollapsed(false)
     setShowVideo(false)
+    setProgress(0)
+    setDuration(0)
+    setCurrentTime(0)
   }, [setCurrentTrack, setPlaying, setAudioPlaying])
 
   function handlePrev() { playPrev() }
@@ -268,44 +263,38 @@ export default function MusicPlayer() {
         {hasQueue && (
           <button className="music-player-btn" onClick={handlePrev} aria-label="Previous" disabled={!shuffleMode && playerIndex <= 0}>&#9198;</button>
         )}
+        <button className="music-player-btn" onClick={handlePlayPause} aria-label={isPlaying ? 'Pause' : 'Play'}>
+          {isPlaying ? '\u23F8' : '\u25B6'}
+        </button>
         {hasQueue && (
           <button className="music-player-btn" onClick={handleNext} aria-label="Next" disabled={!shuffleMode && playerIndex >= playerQueue.length - 1}>&#9197;</button>
         )}
         <button className="music-player-close" onClick={handleClose} aria-label="Close">&times;</button>
 
-        {/* Hidden iframe for audio playback in collapsed mode */}
-        {embedUrl && !showSearchButton && (
-          <iframe
-            ref={iframeRef}
-            className="music-player-iframe-hidden"
-            src={embedUrl}
-            title={`Now playing: ${currentTrack.artist} — ${currentTrack.title}`}
-            allow="autoplay; encrypted-media"
-            allowFullScreen={false}
-            onError={() => setEmbedError(true)}
-          />
-        )}
+        {/* Hidden YT player container — persists across collapsed/expanded */}
+        <div id="yt-player-hidden" className="music-player-iframe-hidden" />
       </div>
     )
   }
 
   return (
     <div className="music-player" role="region" aria-label={`Music player: ${currentTrack.artist} — ${currentTrack.title}`}>
-      {/* Progress bar */}
-      <div className="music-player-progress" style={{ width: isPlaying ? '100%' : '0%' }} aria-hidden="true" />
+      {/* Seek bar at top */}
+      <div
+        className="music-player-seekbar"
+        onClick={handleSeek}
+        role="slider"
+        aria-label="Seek"
+        aria-valuenow={Math.round(currentTime)}
+        aria-valuemax={Math.round(duration)}
+        tabIndex={0}
+      >
+        <div className="music-player-seekbar-fill" style={{ width: `${progress * 100}%` }} />
+        <div className="music-player-seekbar-thumb" style={{ left: `${progress * 100}%` }} />
+      </div>
 
-      {/* Hidden iframe for audio — always present, never visible */}
-      {embedUrl && !showSearchButton && (
-        <iframe
-          ref={iframeRef}
-          className="music-player-iframe-hidden"
-          src={embedUrl}
-          title={`Now playing: ${currentTrack.artist} — ${currentTrack.title}`}
-          allow="autoplay; encrypted-media"
-          allowFullScreen={false}
-          onError={() => setEmbedError(true)}
-        />
-      )}
+      {/* Hidden YT player container */}
+      <div id="yt-player-hidden" className="music-player-iframe-hidden" />
 
       {/* Thumbnail area */}
       <div
@@ -331,12 +320,12 @@ export default function MusicPlayer() {
           </button>
         )}
 
-        {/* PiP video popup on hover */}
-        {showVideo && embedUrl && !showSearchButton && (
+        {/* PiP video popup on hover — uses same player, just repositioned */}
+        {showVideo && videoId && !showSearchButton && (
           <div className="music-player-pip">
             <iframe
               className="music-player-pip-iframe"
-              src={embedUrl}
+              src={`https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&modestbranding=1&rel=0&playsinline=1`}
               title={`Video: ${currentTrack.artist} — ${currentTrack.title}`}
               allow="autoplay; encrypted-media"
               allowFullScreen={false}
@@ -356,6 +345,7 @@ export default function MusicPlayer() {
           )}
         </div>
         <div className="music-player-meta">
+          <span className="music-player-time">{formatTime(currentTime)} / {formatTime(duration)}</span>
           {currentTrack.year && <span>{currentTrack.year}</span>}
           {queueLabel && <span className="music-player-track-counter">{queueLabel}</span>}
         </div>
@@ -376,9 +366,9 @@ export default function MusicPlayer() {
         )}
         <button
           className="music-player-btn music-player-btn--play"
-          onClick={handleOpenYouTube}
-          aria-label={isPlaying ? 'Playing' : 'Open on YouTube'}
-          title={isPlaying ? 'Playing' : 'Open on YouTube'}
+          onClick={handlePlayPause}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+          title={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? '\u23F8' : '\u25B6'}
         </button>

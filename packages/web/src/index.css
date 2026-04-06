@@ -43,40 +43,59 @@ html, body, #root {
 
 .timeline-bar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 64px;
+  top: 48px;
+  left: 24px;
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  gap: 16px;
-  z-index: 20;
-  background: linear-gradient(to top, rgba(10,10,15,0.95) 0%, transparent 100%);
+  gap: 6px;
+  z-index: 19;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(10,10,15,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.timeline-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+.timeline-bound {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  opacity: 0.35;
+  color: #fff;
 }
 .timeline-bar .year-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: #fff;
-  min-width: 56px;
+  min-width: 36px;
+  text-align: center;
+}
+.timeline-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  opacity: 0.35;
+  color: #fff;
+  margin-left: 2px;
 }
 .timeline-bar input[type="range"] {
-  flex: 1;
+  width: 100px;
   -webkit-appearance: none;
-  height: 4px;
+  height: 3px;
   background: rgba(255,255,255,0.15);
   border-radius: 2px;
   outline: none;
 }
 .timeline-bar input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
-  box-shadow: 0 0 12px rgba(255,255,255,0.5);
+  box-shadow: 0 0 8px rgba(255,255,255,0.4);
 }
 
 .genre-panel {
@@ -610,19 +629,23 @@ html, body, #root {
   }
 
   .timeline-bar {
-    height: 56px;
-    padding: 0 12px;
-    gap: 8px;
-    bottom: 0;
+    top: 44px;
+    left: 12px;
+    padding: 3px 8px;
+    gap: 4px;
   }
   .timeline-bar .year-label {
-    font-size: 18px;
-    min-width: 44px;
+    font-size: 12px;
+    min-width: 32px;
+  }
+  .timeline-bar input[type="range"] {
+    width: 80px;
   }
   .timeline-bar input[type="range"]::-webkit-slider-thumb {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
   }
+  .timeline-count { display: none; }
 
   /* Hide tooltip on mobile (use long-press instead) */
   .genre-tooltip { display: none; }
@@ -699,7 +722,9 @@ html, body, #root {
   .header { padding: 0 8px; }
   .logo { font-size: 13px; }
   .genre-panel { max-height: 55vh; }
-  .timeline-bar .year-label { font-size: 16px; }
+  .timeline-bar .year-label { font-size: 11px; }
+  .timeline-bar input[type="range"] { width: 60px; }
+  .timeline-bound { display: none; }
   .vibe-search { flex: 0 1 140px; }
   .view-switch-btn { padding: 8px 12px; font-size: 10px; }
   .view-switch-btn span { display: none; }

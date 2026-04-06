@@ -73,16 +73,51 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* Progress bar — thin line at top */
-.music-player-progress {
+/* Seek bar — interactive progress at top */
+.music-player-seekbar {
   position: absolute;
   top: 0;
   left: 0;
-  height: 2px;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  z-index: 10;
+  transition: height 0.15s;
+}
+.music-player-seekbar:hover {
+  height: 6px;
+}
+.music-player-seekbar-fill {
+  height: 100%;
   background: #66ccff;
-  transition: width 2s linear;
-  border-radius: 0 1px 1px 0;
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
   box-shadow: 0 0 6px rgba(100, 200, 255, 0.4);
+}
+.music-player-seekbar-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.music-player-seekbar:hover .music-player-seekbar-thumb {
+  opacity: 1;
+}
+
+/* Time display */
+.music-player-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.5px;
 }
 
 /* Thumbnail area — 56x56 rounded square */
