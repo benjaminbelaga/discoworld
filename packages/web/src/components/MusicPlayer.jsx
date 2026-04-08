@@ -54,7 +54,6 @@ export default function MusicPlayer() {
   const ytContainerRef = useRef(null)
 
   const [isPlaying, setIsPlaying] = useState(false)
-  const [embedError, setEmbedError] = useState(false)
   const [showSearchButton, setShowSearchButton] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
@@ -111,7 +110,6 @@ export default function MusicPlayer() {
       }
       if (progressInterval.current) clearInterval(progressInterval.current)
       setIsPlaying(false)
-      setEmbedError(false)
       setShowSearchButton(false)
       setProgress(0)
       setDuration(0)
@@ -122,16 +120,19 @@ export default function MusicPlayer() {
 
     const videoId = extractVideoId(currentTrack.youtube)
     if (!videoId) {
-      // No direct video ID — show search button
       setShowSearchButton(true)
       setIsPlaying(false)
+      // Auto-advance if queue has more tracks
+      if (playerQueue.length > 1) {
+        const t = setTimeout(() => playNextRef.current(), 1500)
+        return () => clearTimeout(t)
+      }
       return
     }
 
     if (!ytReady || !window.YT?.Player) return
 
     setShowSearchButton(false)
-    setEmbedError(false)
     setProgress(0)
     setDuration(0)
     setCurrentTime(0)
@@ -180,8 +181,11 @@ export default function MusicPlayer() {
           if (e.data === 2) setIsPlaying(false)
         },
         onError: () => {
-          setEmbedError(true)
           setIsPlaying(false)
+          // Auto-advance on embed error if queue has more tracks
+          if (playerQueue.length > 1) {
+            setTimeout(() => playNextRef.current(), 1500)
+          }
         },
       },
     })
@@ -228,7 +232,6 @@ export default function MusicPlayer() {
     setPlaying(false)
     setAudioPlaying(false)
     setIsPlaying(false)
-    setEmbedError(false)
     setShowSearchButton(false)
     setCollapsed(false)
     setShowVideo(false)
