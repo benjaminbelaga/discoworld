@@ -1,120 +1,190 @@
-.yoyaku-login-panel {
+.yl-panel {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 300;
-  width: 340px;
-  max-width: 90vw;
-  background: rgba(10, 10, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  backdrop-filter: blur(20px);
-  padding: 32px 28px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  width: 360px;
+  max-width: 92vw;
+  background: rgba(10, 11, 20, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  backdrop-filter: blur(24px);
+  padding: 36px 28px 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.03);
 }
 
-.yoyaku-login-close {
+.yl-close {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  top: 14px;
+  right: 18px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.25);
   font-size: 20px;
   cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s;
 }
-.yoyaku-login-close:hover { color: rgba(255, 255, 255, 0.7); }
+.yl-close:hover { color: rgba(255, 255, 255, 0.6); }
 
-.yoyaku-login-title {
-  font-size: 18px;
+.yl-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.yl-title {
+  font-size: 20px;
   font-weight: 600;
   color: #fff;
-  margin: 0 0 4px 0;
+  text-align: center;
+  margin: 0 0 6px;
+  letter-spacing: -0.3px;
 }
 
-.yoyaku-login-subtitle {
+.yl-subtitle {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 0 20px 0;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  margin: 0 0 28px;
 }
 
-.yoyaku-login-form {
+/* OAuth buttons */
+.yl-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.1px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.yl-btn-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.yl-btn-chevron {
+  margin-left: auto;
+  font-size: 9px;
+  opacity: 0.4;
+}
+
+/* Discogs — primary */
+.yl-btn-discogs {
+  background: rgba(255, 120, 50, 0.1);
+  border: 1px solid rgba(255, 120, 50, 0.25);
+  color: #ff8844;
+}
+.yl-btn-discogs:hover {
+  background: rgba(255, 120, 50, 0.18);
+  border-color: rgba(255, 120, 50, 0.4);
+  color: #ffaa66;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255, 100, 40, 0.15);
+}
+
+/* YOYAKU — secondary */
+.yl-btn-yoyaku {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.65);
+}
+.yl-btn-yoyaku:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Email form (collapsible) */
+.yl-email-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  animation: yl-slide-in 0.15s ease;
 }
 
-.yoyaku-login-input {
+@keyframes yl-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.yl-input {
   width: 100%;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
   box-sizing: border-box;
 }
-.yoyaku-login-input:focus {
-  border-color: rgba(0, 255, 255, 0.4);
-}
-.yoyaku-login-input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
-}
+.yl-input:focus { border-color: rgba(255, 255, 255, 0.2); }
+.yl-input::placeholder { color: rgba(255, 255, 255, 0.2); }
 
-.yoyaku-login-error {
+.yl-error {
   color: #ff6b6b;
   font-size: 12px;
-  padding: 6px 0;
 }
 
-.yoyaku-login-submit {
+.yl-submit {
   width: 100%;
-  padding: 10px;
-  background: rgba(0, 255, 255, 0.15);
-  border: 1px solid rgba(0, 255, 255, 0.3);
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  color: #0ff;
-  font-size: 14px;
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
-.yoyaku-login-submit:hover {
-  background: rgba(0, 255, 255, 0.25);
-}
-.yoyaku-login-submit:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
+.yl-submit:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.yl-submit:disabled { opacity: 0.4; cursor: wait; }
 
-.yoyaku-login-footer {
+.yl-footer {
   text-align: center;
-  margin-top: 16px;
-  font-size: 12px;
+  margin-top: 14px;
+  font-size: 11px;
 }
-.yoyaku-login-footer a {
-  color: rgba(255, 255, 255, 0.35);
+.yl-footer a {
+  color: rgba(255, 255, 255, 0.25);
   text-decoration: none;
 }
-.yoyaku-login-footer a:hover {
-  color: rgba(255, 255, 255, 0.6);
-}
+.yl-footer a:hover { color: rgba(255, 255, 255, 0.5); }
 
 /* Success state */
-.yoyaku-login-success {
-  text-align: center;
-}
-.yoyaku-login-avatar {
-  width: 48px;
-  height: 48px;
+.yl-success { text-align: center; }
+
+.yl-avatar {
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background: rgba(0, 255, 255, 0.15);
-  border: 2px solid rgba(0, 255, 255, 0.3);
-  color: #0ff;
+  background: rgba(255, 120, 50, 0.1);
+  border: 2px solid rgba(255, 120, 50, 0.25);
+  color: #ff8844;
   font-size: 22px;
   font-weight: 700;
   display: flex;
@@ -122,38 +192,46 @@
   justify-content: center;
   margin: 0 auto 12px;
 }
-.yoyaku-login-success h3 {
-  margin: 0 0 4px 0;
+
+.yl-success h3 {
+  margin: 0 0 4px;
   color: #fff;
   font-size: 16px;
 }
-.yoyaku-login-tier {
-  font-size: 11px;
+
+.yl-tier {
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #0ff;
+  letter-spacing: 1.5px;
+  color: #ff8844;
   margin-bottom: 12px;
 }
-.yoyaku-login-stats {
+
+.yl-stats {
   display: flex;
   justify-content: center;
   gap: 16px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.45);
   margin-bottom: 12px;
 }
-.yoyaku-login-genres {
+
+.yl-genres {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   margin-top: 8px;
 }
-.yoyaku-genre-tag {
+
+.yl-genre-tag {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.45);
 }
+
+/* Legacy class aliases for backward compat */
+.yoyaku-login-panel { display: none; }
