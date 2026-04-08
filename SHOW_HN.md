@@ -1,17 +1,21 @@
-# Show HN: DiscoWorld — Explore 5M electronic releases as a 3D world
+# Show HN: DiscoWorld – 4.87M electronic releases you can explore and listen to on a 3D planet
 
-DiscoWorld maps millions of music releases into an explorable 3D world where spatial proximity reflects musical similarity. Two modes:
+Every Noise at Once mapped music genres spatially until Spotify killed it in 2023. Nothing replaced it. I built DiscoWorld to fill that gap, specifically for electronic music.
 
-**Genre Planet** — A procedural planet where 166 genres form continents. Techno mountains, ambient oceans, house plains. Each territory has its own ambient soundscape synthesized in real-time via Web Audio API. Click a territory to hear genre-appropriate live coding patterns (powered by Strudel). Buildings grow as sub-genres emerge through decades.
+The entire Discogs electronic catalogue (4.87M releases) is mapped onto a procedural planet. 166 genre territories arranged by sonic similarity, each with its own terrain biome. Techno gets industrial canyons. Ambient gets bioluminescent valleys. Drum & bass gets jagged peaks.
 
-**Earth Globe** — Real geography with 7K+ record shops from OpenStreetMap, 30K geocoded labels from Discogs, and city scenes from Detroit to Berlin to Tokyo. Distribution arcs trace how genres traveled across continents.
+**You can actually listen.** Click any release and a YouTube player loads inline — no leaving the planet, no new tab. Queue builds automatically as you explore a genre territory. Favorites persist. Seek bar works.
 
-**Discovery** — Connect your Discogs collection (no account needed) to see your musical footprint, get personalized recommendations via hybrid collaborative + content-based filtering, and find "crate neighbors" — collectors with similar taste.
+Two exploration modes:
 
-Built with: React 19, Three.js r183, globe.gl, React Three Fiber, FastAPI, SQLite. Strudel for live coding. 4.87M releases from the Discogs CC0 data dump. 280+ automated tests.
+**Genre Planet** — Walk the terrain by genre. Buildings grow taller as sub-genres branch across decades. Ambient soundscape plays for each biome. Timeline slider shows how genres evolved from 1975 to today.
 
-AGPL-3.0 licensed. Data CC0. Zero account required for first exploration. RecordStoreAdapter plugin API for any shop to integrate.
+**Earth Globe** — Real geography. 7,000+ record shops from OpenStreetMap. Distribution arcs tracing Detroit techno → Berlin, Chicago house → UK. City panels with local release history.
 
-The idea: what if you could walk into the world's largest record shop and the crates organized themselves around you?
+**Discovery** — Connect Discogs (no account needed). See your collection footprint on the planet, get recommendations via hybrid collaborative + content-based filtering, find crate neighbors — collectors with overlapping taste.
+
+Stack: React 19 + Three.js r183 + globe.gl + FastAPI + SQLite. 4.87M releases from the Discogs CC0 dump. 346 tests.
+
+AGPL-3.0. Data CC0. No login required for first exploration.
 
 https://github.com/benjaminbelaga/discoworld
