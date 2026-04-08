@@ -4,8 +4,7 @@
   Navigate 166 genres, 4.87 million releases, and 50 years of history — on a planet made of sound.</p>
 </p>
 
-<!-- TODO: Insert screenshot or GIF of the 3D globe here -->
-<!-- Example: ![DiscoWorld Screenshot](docs/assets/screenshot.png) -->
+[![DiscoWorld](https://world.yoyaku.io/social-preview.png)](https://world.yoyaku.io)
 
 [![CI](https://github.com/benjaminbelaga/discoworld/actions/workflows/ci.yml/badge.svg)](https://github.com/benjaminbelaga/discoworld/actions)
 [![AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
@@ -20,7 +19,7 @@
 
 ## What is DiscoWorld?
 
-DiscoWorld maps millions of music releases into an explorable 3D world where spatial proximity reflects musical similarity. Navigate by genre, geography, and time. Connect your Discogs collection to see your musical footprint. Live-code music with Strudel as you explore.
+DiscoWorld maps millions of music releases into an explorable 3D world where spatial proximity reflects musical similarity. Navigate by genre, geography, and time. Click any release to listen via the inline YouTube player. Connect your Discogs collection to see your musical footprint.
 
 ### Three ways to explore
 
@@ -34,7 +33,7 @@ DiscoWorld maps millions of music releases into an explorable 3D world where spa
 
 - **166 electronic genres** mapped to 13 biomes with unique terrain, color palettes, and synthesized ambient audio
 - **4.87M releases** from the Discogs CC0 dataset, each positioned in the world
-- **Strudel live coding** — press L to open a genre-aware music pattern generator (powered by [Strudel](https://strudel.cc))
+- **Inline music player** — click any release to play via YouTube, no tab switching. Auto-queue, shuffle, seek bar, favorites
 - **Biome soundscapes** — procedural ambient audio per territory via Web Audio API
 - **7,121 record shops** from OpenStreetMap on the Earth Globe
 - **30,188 labels** geocoded from the Discogs dump across 81 cities
@@ -100,7 +99,7 @@ python build_db.py
 | Labels geocoded | 30,188 across 81 cities |
 | MusicBrainz matches | 80% match rate with cover art |
 | Automated tests | 346 (API, pipeline, frontend, E2E) |
-| External audio files | Zero — all audio is procedurally synthesized |
+| External audio files | Zero — biome audio is procedurally synthesized |
 
 ---
 
