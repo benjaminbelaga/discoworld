@@ -17,10 +17,12 @@ export default function SearchBar() {
   const abortRef = useRef(null)
 
   const genres = useStore(s => s.genres)
+  const releases = useStore(s => s.releases)
   const setActiveGenre = useStore(s => s.setActiveGenre)
   const setCameraTarget = useStore(s => s.setCameraTarget)
   const setActiveLabel = useStore(s => s.setActiveLabel)
   const setActiveArtist = useStore(s => s.setActiveArtist)
+  const setCurrentTrack = useStore(s => s.setCurrentTrack)
   const viewMode = useStore(s => s.viewMode)
   const citiesData = useStore(s => s.citiesData)
   const flyToCity = useStore(s => s.flyToCity)
@@ -101,12 +103,55 @@ export default function SearchBar() {
     }
   }, [searchIndex, genres])
 
+  // URL paste detection: YouTube / Discogs → locate matching track on map
+  // Returns { matched, track, genreSlug } or null if no match.
+  const locateByUrl = useCallback((url) => {
+    if (!url || !releases) return null
+    // YouTube video ID extraction
+    let videoId = null
+    try {
+      const u = new URL(url)
+      if (u.hostname.includes('youtube.com')) videoId = u.searchParams.get('v')
+      else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1)
+    } catch { return null }
+    if (!videoId) return null
+    // Scan releases dict for a track whose youtube field contains this id
+    for (const [genreSlug, tracks] of Object.entries(releases)) {
+      if (!Array.isArray(tracks)) continue
+      for (const t of tracks) {
+        if (t.youtube && t.youtube.includes(videoId)) {
+          return { track: t, genreSlug }
+        }
+      }
+    }
+    return null
+  }, [releases])
+
   const handleInputChange = useCallback((e) => {
     const val = e.target.value
     setQuery(val)
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    // URL paste shortcut — instant zoom, no debounce
+    if (/^https?:\/\//.test(val.trim())) {
+      const match = locateByUrl(val.trim())
+      if (match) {
+        const genre = genreMap.get(match.genreSlug) || genres.find(g => g.slug === match.genreSlug)
+        if (genre) {
+          setActiveGenre(genre)
+          setCameraTarget(genre)
+        }
+        setCurrentTrack(match.track)
+        // Inline close (can't reference close() — declared later, TDZ)
+        setQuery('')
+        setResults({ genres: [], artists: [], labels: [] })
+        setIsOpen(false)
+        setSelectedIdx(0)
+        inputRef.current?.blur()
+        return
+      }
+    }
     debounceRef.current = setTimeout(() => doSearch(val), 200)
-  }, [doSearch])
+  }, [doSearch, locateByUrl, genreMap, genres, setActiveGenre, setCameraTarget, setCurrentTrack])
 
   const close = useCallback(() => {
     setQuery('')
