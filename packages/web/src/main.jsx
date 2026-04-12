@@ -2,7 +2,17 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary'
 import { registerSW } from 'virtual:pwa-register'
+
+// Stash the last unhandled error on window so prod crashes are diagnosable
+// without source maps. Future ops can read `window.__lastError` in DevTools.
+window.addEventListener('error', (e) => {
+  window.__lastError = { message: e.message, stack: e.error?.stack, filename: e.filename, lineno: e.lineno }
+})
+window.addEventListener('unhandledrejection', (e) => {
+  window.__lastUnhandledRejection = { reason: String(e.reason), stack: e.reason?.stack }
+})
 
 // Register service worker with auto-update + user-visible update banner.
 // Without onNeedRefresh, returning users stay on stale JS until hard-reload.
@@ -43,6 +53,8 @@ const updateSW = registerSW({
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary name="Root">
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

@@ -6,7 +6,6 @@ import * as THREE from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 
 /**
  * @param {THREE.WebGLRenderer} renderer
@@ -16,6 +15,14 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
  */
 export function setupBloom(renderer, scene, camera) {
   const size = renderer.getSize(new THREE.Vector2())
+
+  // Use native sRGB + ACES tone mapping on the renderer instead of a separate
+  // OutputPass — OutputPass triggered sync ReadPixels stalls on ANGLE/Metal
+  // when the bloom composer shared the WebGL context with R3F's Canvas
+  // (two postprocessing pipelines fighting for the same GL context).
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.0
 
   const composer = new EffectComposer(renderer)
   composer.setSize(size.x, size.y)
@@ -32,9 +39,6 @@ export function setupBloom(renderer, scene, camera) {
     0.8     // threshold
   )
   composer.addPass(bloomPass)
-
-  const outputPass = new OutputPass()
-  composer.addPass(outputPass)
 
   const resize = (width, height) => {
     composer.setSize(width, height)

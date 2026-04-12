@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, useCallback } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { handleCallback } from './lib/discogsApi'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, AdaptiveDpr, Preload } from '@react-three/drei'
@@ -125,8 +125,8 @@ function AudioReactiveBloom() {
       <Bloom
         luminanceThreshold={0.35}
         luminanceSmoothing={0.5}
-        intensity={0.5}
-        mipmapBlur
+        intensity={0.55}
+        mipmapBlur={false}
       />
     </EffectComposer>
   )
@@ -416,7 +416,7 @@ export default function App() {
   if (!loaded) return <LoadingScreen />
 
   return (
-    <div role="application" aria-label="DiscoWorld — interactive music genre explorer">
+    <div aria-label="DiscoWorld — interactive music genre explorer">
       {/* Skip to content link for keyboard users */}
       <a
         href="#discoworld-main"
@@ -436,8 +436,15 @@ export default function App() {
           <ErrorBoundary name="Canvas">
             <Canvas
               camera={{ position: [0, 50, 85], fov: 50, near: 0.1, far: 500 }}
-              dpr={isMobile ? [1, 1.5] : [1, 2]}
-              gl={{ antialias: !isMobile, alpha: false }}
+              dpr={isMobile ? [1, 1.5] : [1, 1.75]}
+              gl={{
+                antialias: false,
+                alpha: false,
+                powerPreference: 'high-performance',
+                stencil: false,
+                depth: true,
+                preserveDrawingBuffer: false,
+              }}
               frameloop={viewMode === 'genre' ? 'always' : 'never'}
               onCreated={({ gl }) => {
                 gl.domElement.addEventListener('webglcontextlost', (e) => {

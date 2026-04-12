@@ -12,23 +12,72 @@ function normalizeSlug(s) {
   return s.toLowerCase().replace(/[_\s-]/g, '')
 }
 
-// Look up tracks for a genre slug by UNION of matches:
+// Curated parent → subgenre track-key aliases. Used for city genre slugs
+// that don't match any existing tracks key even via prefix/suffix fallback.
+// Source: data coverage audit 2026-04-12 (Johannesburg + Milan silent failures).
+// Each value = array of track keys to UNION. Keys MUST exist in world.json.tracks.
+const GENRE_ALIASES = {
+  afro_house:         ['chicagohouse', 'frenchhouse'],
+  italo_disco:        ['discohouse', 'electroclash', 'dancepunk', 'hinrg'], // unblocks Milan
+  italo_house:        ['discohouse', 'frenchhouse', 'chicagohouse'],
+  psytrance:          ['psychedelictrance', 'goatrance', 'darkpsy', 'progpsy'],
+  gabber:             ['hardcore', 'speedcore', 'oldskoolravehardcore', 'ukhardcore'],
+  post_punk:          ['darkwave', 'industrial', 'ebm'],
+  deconstructed_club: ['experimental', 'glitch', 'noise'],
+  uk_garage:          ['2-stepgarage', 'speedgarage', 'futuregarage', 'ukhouse'],
+  breakbeat:          ['breaks', 'bigbeat', 'chemicalbreaks', 'nuskoolbreaks', 'floridabreaks'],
+  dnb:                ['liquidfunk', 'jumpup', 'neurofunk', 'techstep', 'darkstep', 'jazzstep', 'drumstep', 'atmosphericjungle', 'raggajungle'],
+  hip_hop:            ['eastcoastrap', 'westcoastrap', 'dirtysouthrap', 'southernrap', 'consciousrap', 'triphop', 'turntablism'],
+  new_wave:           ['synthpop', 'darkwave', 'electroclash', 'futurepop'],
+  bassline:           ['dubstep', 'brostep', 'grime', 'speedgarage'],
+  french_touch:       ['frenchhouse', 'discohouse', 'fidgethouse', 'filthyelectrohouse'],
+  electronica:        ['ambient', 'downtempo', 'glitch', 'experimental'],
+  baile_funk:         ['moombahton', 'miamibass', 'ghettotech', 'dancehall'],
+}
+
+// Look up tracks for a genre slug by UNION of matches, with progressive fallbacks:
 //   1. Direct key match
 //   2. Normalized equality (strips _, space, -)
 //   3. Parent-genre fallback (keys that END or START with the normalized slug)
+//   4. Word-split fallback for compound slugs — if 1-3 all fail, split the
+//      query by separators and re-try each word ≥ 5 chars as prefix/suffix.
+//      Example: "afro_house" → ['afro','house'] → 'house' matches chicagohouse,
+//      deephouse, frenchhouse, etc. Unlocks Johannesburg (afro_house) and any
+//      other city whose only tag is an unfamiliar compound genre.
+//      The ≥ 5 char filter prevents false matches like 'hip' → hiphouse.
 // Union everything — a parent like "trance" may have 0 YouTube tracks on its
-// own direct key but many under subgenres (balearictrance, eurotrance...).
-// Early-returning on the direct match would miss those.
+// own direct key but many under subgenres. Early-returning would miss those.
 function findGenreTracks(releases, genre) {
   if (!releases) return []
   const norm = normalizeSlug(genre)
   const keys = Object.keys(releases)
   const matching = new Set()
+  // 1. Direct key match
   if (releases[genre]) matching.add(genre)
+  // 2. Normalized equality + 3. Prefix/suffix parent-genre fallback
   for (const k of keys) {
     const nk = normalizeSlug(k)
     if (nk === norm || nk.endsWith(norm) || nk.startsWith(norm)) {
       matching.add(k)
+    }
+  }
+  // 4. Curated alias map (Johannesburg, Milan, 12 other cities rescued)
+  const aliasKeys = GENRE_ALIASES[genre.toLowerCase()]
+  if (aliasKeys) {
+    for (const k of aliasKeys) {
+      if (releases[k]) matching.add(k)
+    }
+  }
+  // 5. Word-split fallback (last resort for compound slugs not in alias map)
+  if (!matching.size && /[_\s-]/.test(genre)) {
+    const words = genre.toLowerCase().split(/[_\s-]+/).filter(w => w.length >= 5)
+    for (const word of words) {
+      for (const k of keys) {
+        const nk = normalizeSlug(k)
+        if (nk.endsWith(word) || nk.startsWith(word)) {
+          matching.add(k)
+        }
+      }
     }
   }
   if (!matching.size) return []
@@ -129,9 +178,21 @@ export default function CityPanel() {
     }
   }
 
+  // Shared keyboard activation handler for role=button divs/spans
+  // (Enter or Space fires the onClick). Previously missing → keyboard
+  // users could tab to city genre/label/track tags but not activate them.
+  function kbActivate(handler) {
+    return (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handler()
+      }
+    }
+  }
+
   return (
     <div className="city-panel">
-      <button className="close-btn" onClick={() => setSelectedCity(null)} aria-label="Close">&times;</button>
+      <button className="close-btn" onClick={() => setSelectedCity(null)} aria-label="Close city panel">&times;</button>
 
       <h2>{selectedCity.name}</h2>
       <div className="city-panel-country">{selectedCity.country}</div>
@@ -151,9 +212,11 @@ export default function CityPanel() {
             key={g}
             className="city-genre-tag city-genre-tag--clickable"
             onClick={() => handleGenreClick(g)}
+            onKeyDown={kbActivate(() => handleGenreClick(g))}
             role="button"
             tabIndex={0}
             title={`Play ${formatGenre(g)} music`}
+            aria-label={`Play ${formatGenre(g)} music`}
           >
             {formatGenre(g)}
           </span>
@@ -169,9 +232,11 @@ export default function CityPanel() {
                 key={l.name}
                 className="city-label-tag city-label-tag--clickable"
                 onClick={() => handleLabelClick(l.name)}
+                onKeyDown={kbActivate(() => handleLabelClick(l.name))}
                 role="button"
                 tabIndex={0}
                 title={`Play ${l.name} — ${l.releases} releases`}
+                aria-label={`Play ${l.name} — ${l.releases} releases`}
               >
                 {l.name}
               </span>
@@ -228,8 +293,10 @@ export default function CityPanel() {
                   key={`${t.artist}-${t.title}`}
                   className={`city-track ${active ? 'city-track--active' : ''}`}
                   onClick={() => handlePlayTrack(i)}
+                  onKeyDown={kbActivate(() => handlePlayTrack(i))}
                   role="button"
                   tabIndex={0}
+                  aria-label={`Play ${t.artist} — ${t.title}`}
                 >
                   {active && <span className="playing-indicator" style={{ marginRight: 6 }}><span /><span /><span /></span>}
                   <span
