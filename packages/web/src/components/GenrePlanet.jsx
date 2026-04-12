@@ -197,15 +197,14 @@ function buildPlanetMesh(data) {
   geometry.computeVertexNormals()
   posAttr.needsUpdate = true
 
-  // Use MeshPhysicalMaterial for richer surface — emissive for deep planet glow
-  const material = new THREE.MeshPhysicalMaterial({
+  // MeshStandardMaterial (was MeshPhysical) — the clearcoat + envMap pass was
+  // invisible under the bloom effect and added 2 extra shader passes per
+  // fragment. +3-8 FPS on integrated GPUs per perf audit.
+  const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: landCount > 0 ? avgRoughness / landCount : 0.7,
     metalness: landCount > 0 ? avgMetalness / landCount : 0.15,
     flatShading: true,
-    clearcoat: 0.1,
-    clearcoatRoughness: 0.4,
-    envMapIntensity: 0.5,
     emissive: new THREE.Color(0x0a0a1e),
     emissiveIntensity: 0.15,
   })

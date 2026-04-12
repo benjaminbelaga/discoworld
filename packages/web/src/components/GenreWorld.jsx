@@ -818,6 +818,54 @@ function BiomeLabels({ genres }) {
   )
 }
 
+// Decade overlay labels — zig-zag.fm parity feature. Groups genres by decade
+// (Math.floor(year/10)*10) and renders a large, subtle overlay at each
+// decade's centroid. Gives the scene a "treasure map of time" feel.
+function DecadeLabels({ genres }) {
+  const decades = useMemo(() => {
+    const groups = {}
+    genres.forEach(g => {
+      if (!g.year) return
+      const decade = Math.floor(g.year / 10) * 10
+      if (!groups[decade]) groups[decade] = { genres: [], label: `${decade}s` }
+      groups[decade].genres.push(g)
+    })
+    return Object.entries(groups)
+      .filter(([, d]) => d.genres.length >= 4) // skip decades with few genres
+      .map(([decade, data]) => {
+        const cx = data.genres.reduce((s, g) => s + g.x, 0) / data.genres.length
+        const cz = data.genres.reduce((s, g) => s + g.z, 0) / data.genres.length
+        return { decade: parseInt(decade), label: data.label, x: cx, z: cz, count: data.genres.length }
+      })
+      .sort((a, b) => a.decade - b.decade)
+  }, [genres])
+
+  return (
+    <group>
+      {decades.map(d => (
+        <Html
+          key={d.decade}
+          position={[d.x, 8, d.z]}
+          center
+          pointerEvents="none"
+          style={{
+            color: 'rgba(240, 235, 224, 0.22)',
+            fontSize: '28px',
+            fontFamily: "'JetBrains Mono', monospace",
+            fontWeight: 700,
+            letterSpacing: '6px',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+            textShadow: '0 0 24px rgba(14,18,32,0.9)',
+          }}
+        >
+          {d.label}
+        </Html>
+      ))}
+    </group>
+  )
+}
+
 // Gentle idle camera bob
 function CameraIdleBob() {
   const idleTimer = useRef(0)
@@ -918,6 +966,7 @@ export default function GenreWorld() {
       <GenreLabels genres={genres} activeSlug={activeGenre?.slug} />
 
       <BiomeLabels genres={genres} />
+      <DecadeLabels genres={genres} />
 
       {/* Ambient dust particles */}
       <AmbientDust genres={genres} />

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { initiateLogin } from '../lib/discogsApi'
 
 export default function YoyakuLogin({ onClose }) {
@@ -8,6 +8,33 @@ export default function YoyakuLogin({ onClose }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [session, setSession] = useState(null)
+  const panelRef = useRef(null)
+  const previouslyFocusedRef = useRef(null)
+
+  // Modal a11y: Esc to close, focus first button on mount, restore focus on close
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement
+    // Focus the first focusable element inside the panel
+    const timer = setTimeout(() => {
+      const firstBtn = panelRef.current?.querySelector('button, [href], input')
+      if (firstBtn) firstBtn.focus()
+    }, 50)
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose?.()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('keydown', onKeyDown)
+      // Restore focus on unmount
+      if (previouslyFocusedRef.current?.focus) {
+        previouslyFocusedRef.current.focus()
+      }
+    }
+  }, [onClose])
 
   const handleDiscogs = async () => {
     // Discogs redirects to the API callback, which exchanges tokens and
@@ -48,11 +75,11 @@ export default function YoyakuLogin({ onClose }) {
   if (session) {
     const initials = (session.name || session.email || '?').charAt(0).toUpperCase()
     return (
-      <div className="yl-panel">
-        <button className="yl-close" onClick={onClose}>&times;</button>
+      <div className="yl-panel" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="yl-success-title">
+        <button className="yl-close" onClick={onClose} aria-label="Close login panel">&times;</button>
         <div className="yl-success">
           <div className="yl-avatar">{initials}</div>
-          <h3>{session.name || session.email}</h3>
+          <h3 id="yl-success-title">{session.name || session.email}</h3>
           {session.tier && <div className="yl-tier">{session.tier}</div>}
           {(session.orders != null || session.collection != null) && (
             <div className="yl-stats">
@@ -73,8 +100,8 @@ export default function YoyakuLogin({ onClose }) {
   }
 
   return (
-    <div className="yl-panel">
-      <button className="yl-close" onClick={onClose}>&times;</button>
+    <div className="yl-panel" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="yl-login-title">
+      <button className="yl-close" onClick={onClose} aria-label="Close login panel">&times;</button>
 
       <div className="yl-logo">
         <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -86,7 +113,7 @@ export default function YoyakuLogin({ onClose }) {
         </svg>
       </div>
 
-      <h2 className="yl-title">Connect</h2>
+      <h2 id="yl-login-title" className="yl-title">Connect</h2>
       <p className="yl-subtitle">Unlock your collection &amp; recommendations</p>
 
       {/* Primary: Discogs OAuth */}

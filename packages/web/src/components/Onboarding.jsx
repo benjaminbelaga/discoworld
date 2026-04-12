@@ -38,6 +38,19 @@ export default function Onboarding() {
     completeOnboarding()
   }, [completeOnboarding])
 
+  // Esc key on the welcome screen dismisses onboarding (a11y)
+  useEffect(() => {
+    if (onboardingStep !== 'vibe') return
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        handleSkip()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onboardingStep, handleSkip])
+
   // Step 1: Welcome screen
   if (onboardingStep === 'vibe') {
     return (
