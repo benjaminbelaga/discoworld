@@ -50,9 +50,15 @@ export default function useUrlState() {
         return true
       }
       if (!trySelectGenre()) {
-        // Genres not loaded yet — retry via subscription
+        // Genres not loaded yet — retry via subscription.
+        // IMPORTANT: unsubscribe BEFORE calling trySelectGenre, otherwise the
+        // inner set() calls re-fire this subscriber synchronously → infinite
+        // recursion ("Maximum call stack size exceeded").
         const unsub = useStore.subscribe((s) => {
-          if (s.genres.length && trySelectGenre()) unsub()
+          if (s.genres.length) {
+            unsub()
+            trySelectGenre()
+          }
         })
       }
     }
@@ -78,8 +84,13 @@ export default function useUrlState() {
         return true
       }
       if (!trySelectCity()) {
+        // Unsub BEFORE calling trySelectCity — the inner setSelectedCity / flyToCity
+        // synchronously re-fire this listener otherwise, recursing to stack overflow.
         const unsub = useStore.subscribe((s) => {
-          if (s.citiesData.length && trySelectCity()) unsub()
+          if (s.citiesData.length) {
+            unsub()
+            trySelectCity()
+          }
         })
       }
     }
@@ -107,7 +118,10 @@ export default function useUrlState() {
         }
         if (!tryFly()) {
           const unsub = useStore.subscribe((s) => {
-            if (s.globeInstance && tryFly()) unsub()
+            if (s.globeInstance) {
+              unsub()
+              tryFly()
+            }
           })
         }
       }

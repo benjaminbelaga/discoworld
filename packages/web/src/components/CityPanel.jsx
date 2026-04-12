@@ -12,29 +12,32 @@ function normalizeSlug(s) {
   return s.toLowerCase().replace(/[_\s-]/g, '')
 }
 
-// Look up tracks for a genre slug with 3 progressively-broader strategies:
-//   1. Direct key match (fast path)
-//   2. Normalized equality (strips _, space, -): "minimal_techno" = "minimaltechno"
-//   3. Parent-genre fallback: if city genre is "techno" but data only has
-//      "minimaltechno"/"dubtechno"/etc., union all keys that END or START
-//      with the normalized parent ("techno" → minimaltechno, bleeptechno,
-//      technobass). Unlocks 18/49 cities that have only parent-genre tags.
+// Look up tracks for a genre slug by UNION of matches:
+//   1. Direct key match
+//   2. Normalized equality (strips _, space, -)
+//   3. Parent-genre fallback (keys that END or START with the normalized slug)
+// Union everything — a parent like "trance" may have 0 YouTube tracks on its
+// own direct key but many under subgenres (balearictrance, eurotrance...).
+// Early-returning on the direct match would miss those.
 function findGenreTracks(releases, genre) {
   if (!releases) return []
-  const direct = releases[genre]
-  if (direct) return direct
   const norm = normalizeSlug(genre)
   const keys = Object.keys(releases)
-  const exact = keys.find(k => normalizeSlug(k) === norm)
-  if (exact) return releases[exact]
-  const children = keys.filter(k => {
+  const matching = new Set()
+  if (releases[genre]) matching.add(genre)
+  for (const k of keys) {
     const nk = normalizeSlug(k)
-    return nk !== norm && (nk.endsWith(norm) || nk.startsWith(norm))
-  })
-  if (children.length) {
-    return children.flatMap(k => releases[k] || [])
+    if (nk === norm || nk.endsWith(norm) || nk.startsWith(norm)) {
+      matching.add(k)
+    }
   }
-  return []
+  if (!matching.size) return []
+  const out = []
+  for (const k of matching) {
+    const arr = releases[k]
+    if (arr) out.push(...arr)
+  }
+  return out
 }
 
 export default function CityPanel() {
