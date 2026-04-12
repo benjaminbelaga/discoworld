@@ -21,21 +21,24 @@ import ShortcutHelp from './components/ShortcutHelp'
 import Onboarding from './components/Onboarding'
 const EarthGlobe = lazy(() => import('./components/EarthGlobe'))
 const GenrePlanet = lazy(() => import('./components/GenrePlanet'))
+// Phase 3 components — lazy-loaded. None of these are needed until the user
+// has interacted for 2min or completes onboarding → saves ~250KB off the
+// initial index chunk (pulls d3/maath/icon helpers). See perf audit.
+const CollectionPassport = lazy(() => import('./components/CollectionPassport'))
+const TasteTopology = lazy(() => import('./components/TasteTopology'))
+const RecommendationPanel = lazy(() => import('./components/RecommendationPanel'))
+const DriftMode = lazy(() => import('./components/DriftMode'))
+const DigPathPanel = lazy(() => import('./components/DigPathPanel'))
+const LabelConstellationOverlay = lazy(() => import('./components/LabelConstellation').then(m => ({ default: m.LabelConstellationOverlay })))
+const ArtistThreadPanel = lazy(() => import('./components/ArtistThread').then(m => ({ default: m.ArtistThreadPanel })))
 import ViewTransition from './components/ViewTransition'
 import ViewSwitch from './components/ViewSwitch'
 import CityPanel from './components/CityPanel'
 import Minimap from './components/Minimap'
 import LayerControls from './components/LayerControls'
-import CollectionPassport from './components/CollectionPassport'
-import TasteTopology from './components/TasteTopology'
-import RecommendationPanel from './components/RecommendationPanel'
-import DriftMode from './components/DriftMode'
 // import StrudelPlayer from './components/StrudelPlayer' // Disabled — needs polish, see ROADMAP
 import InstallPrompt from './components/InstallPrompt'
-import DigPathPanel from './components/DigPathPanel'
 import { pathFromUrl } from './lib/pathSerializer'
-import { LabelConstellationOverlay } from './components/LabelConstellation'
-import { ArtistThreadPanel } from './components/ArtistThread'
 import ErrorBoundary from './components/ErrorBoundary'
 // import { setBiome, stopSoundscape } from './lib/soundscape' // Disabled — soundscape system off
 
@@ -496,18 +499,20 @@ export default function App() {
       {midUIVisible && viewMode === 'genre' && <FilterBar />}
       {midUIVisible && viewMode === 'genre' && <Timeline />}
       {midUIVisible && !isMobile && <ShortcutHelp />}
-      {midUIVisible && viewMode === 'genre' && <LabelConstellationOverlay />}
-      {midUIVisible && viewMode === 'genre' && <ArtistThreadPanel />}
+      <Suspense fallback={null}>
+        {midUIVisible && viewMode === 'genre' && <LabelConstellationOverlay />}
+        {midUIVisible && viewMode === 'genre' && <ArtistThreadPanel />}
 
-      {/* Phase 3: visible after full onboarding (2min or Discogs import) */}
-      {isFullUI && <DriftMode />}
-      {isFullUI && <LayerControls />}
-      {isFullUI && <CollectionPassport />}
-      {isFullUI && <TasteTopology />}
-      {isFullUI && <RecommendationPanel />}
+        {/* Phase 3: visible after full onboarding (2min or Discogs import) */}
+        {isFullUI && <DriftMode />}
+        {isFullUI && <LayerControls />}
+        {isFullUI && <CollectionPassport />}
+        {isFullUI && <TasteTopology />}
+        {isFullUI && <RecommendationPanel />}
 
-      {/* DigPath: only show panel when already in record/playback mode (no always-visible Create Path button) */}
-      {isFullUI && viewMode === 'genre' && <DigPathPanel />}
+        {/* DigPath: only show panel when already in record/playback mode */}
+        {isFullUI && viewMode === 'genre' && <DigPathPanel />}
+      </Suspense>
 
       {/* Minimap: hidden on mobile (too small to be useful) */}
       {minimapVisible && !isMobile && <Minimap />}
