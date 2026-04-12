@@ -483,7 +483,13 @@ export default function App() {
 
       {/* Always visible */}
       <Header />
-      <main id="discoworld-main" tabIndex={-1} style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: -1 }} aria-label="3D music explorer" />
+      {/* SR landmark — non-visual. Persistent h1 so heading hierarchy is
+          satisfied after onboarding completes (the Welcome h1 disappears). */}
+      <main id="discoworld-main" tabIndex={-1} style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: -1, width: 1, height: 1, overflow: 'hidden' }} aria-label="3D music explorer">
+        <h1 style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+          DiscoWorld — Non-Linear Musical Exploration
+        </h1>
+      </main>
       <MusicPlayer />
       {/* <StrudelPlayer /> — Disabled, needs polish. See ROADMAP. */}
       <Onboarding />
