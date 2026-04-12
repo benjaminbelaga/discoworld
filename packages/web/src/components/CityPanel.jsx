@@ -68,15 +68,24 @@ export default function CityPanel() {
     t => t.artist === currentTrack.artist && t.title === currentTrack.title
   )
 
-  // Auto-play when a new city is selected
+  // Auto-play when a new city is selected. Capped + try/catch to survive
+  // cities like Alexandria whose parent-genre fallback unions ~155 tracks
+  // across 31 subgenre keys — passing that big a queue to setPlayerQueue was
+  // suspected of crashing (ErrorBoundary surfaced a blank dialog in prod).
   const prevCityNameRef = useRef(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!selectedCity) { prevCityNameRef.current = null; return }
     if (selectedCity.name === prevCityNameRef.current) return
     prevCityNameRef.current = selectedCity.name
-    if (allCityTracks.length > 0) {
-      setPlayerQueue(allCityTracks, 0)
+    try {
+      if (allCityTracks.length > 0) {
+        // Cap queue at 50 to keep the YT player + React reconciliation snappy.
+        const capped = allCityTracks.slice(0, 50)
+        setPlayerQueue(capped, 0)
+      }
+    } catch (err) {
+      console.error('[CityPanel] auto-play failed:', err)
     }
   }, [selectedCity])
 

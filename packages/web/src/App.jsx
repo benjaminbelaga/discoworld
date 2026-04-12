@@ -123,9 +123,9 @@ function AudioReactiveBloom() {
   return (
     <EffectComposer>
       <Bloom
-        luminanceThreshold={0.6}
-        luminanceSmoothing={0.4}
-        intensity={0.8}
+        luminanceThreshold={0.35}
+        luminanceSmoothing={0.5}
+        intensity={0.5}
         mipmapBlur
       />
     </EffectComposer>
@@ -137,9 +137,10 @@ function Scene({ isMobile }) {
 
   return (
     <>
-      <color attach="background" args={['#060610']} />
-      <fog attach="fog" args={['#050510', 120, 350]} />
-      <ambientLight intensity={0.35} color="#8888cc" />
+      {/* Nebula-dusk palette (no pitch black) + extended fog far for peripheral genre visibility */}
+      <color attach="background" args={['#0e1220']} />
+      <fog attach="fog" args={['#141826', 180, 500]} />
+      <ambientLight intensity={0.5} color="#8888cc" />
       {/* Main overhead light — cooler blue */}
       <pointLight position={[0, 50, 0]} intensity={0.8} color="#4466ff" />
       {/* Warm accent from side */}
@@ -434,7 +435,7 @@ export default function App() {
         <div style={{ display: viewMode === 'genre' ? 'block' : 'none', position: 'absolute', inset: 0 }}>
           <ErrorBoundary name="Canvas">
             <Canvas
-              camera={{ position: [0, 40, 60], fov: 55, near: 0.1, far: 500 }}
+              camera={{ position: [0, 50, 85], fov: 50, near: 0.1, far: 500 }}
               dpr={isMobile ? [1, 1.5] : [1, 2]}
               gl={{ antialias: !isMobile, alpha: false }}
               frameloop={viewMode === 'genre' ? 'always' : 'never'}
@@ -475,8 +476,12 @@ export default function App() {
       <Onboarding />
 
       {/* Phase 1: visible right after genre select (3D world + genre panel) */}
-      {!isVibe && viewMode === 'genre' && <GenrePanel />}
-      {!isVibe && viewMode === 'earth' && <CityPanel />}
+      {!isVibe && viewMode === 'genre' && (
+        <ErrorBoundary name="GenrePanel"><GenrePanel /></ErrorBoundary>
+      )}
+      {!isVibe && viewMode === 'earth' && (
+        <ErrorBoundary name="CityPanel"><CityPanel /></ErrorBoundary>
+      )}
       {!isVibe && <ExploreButton />}
 
       {/* Phase 2: visible after 30s or 3 interactions */}

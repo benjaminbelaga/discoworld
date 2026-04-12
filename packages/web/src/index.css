@@ -10,7 +10,8 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: radial-gradient(ellipse at 50% 50%, #0a0a1a 0%, #050510 40%, #000000 100%);
+  /* Nebula-dusk palette: deep core → mid → edge purple-black. No pitch black. */
+  background: radial-gradient(ellipse at 50% 50%, #1a1f35 0%, #141826 40%, #0e1220 100%);
   color: #e0e0e0;
   font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
 }

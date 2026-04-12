@@ -432,17 +432,21 @@ function GenreLabels({ genres, activeSlug }) {
 function GenreLabel({ genre, camera, isActive, maxTrackCount }) {
   const textRef = useRef()
 
-  // Proportional font size: major genres are larger/more readable
-  const fontSize = 0.6 + (genre.trackCount / maxTrackCount) * 0.6
+  // Proportional font size: 1.0–2.4 range (was 0.6–1.2, unreadable at distance).
+  // sqrt weighting lets mega-genres stand out without dominating.
+  const weight = Math.sqrt(genre.trackCount / Math.max(maxTrackCount, 1))
+  const fontSize = 1.0 + weight * 1.4
 
   useFrame(() => {
     if (!textRef.current) return
     const dist = camera.position.distanceTo(
       new THREE.Vector3(genre.x, genre.y, genre.z)
     )
+    // Extended visibility range to match larger camera distance (was fade-out
+    // at 28+38=66 units, now 50+60=110 — keeps peripheral labels visible).
     const opacity = isActive
-      ? Math.min(1, Math.max(0.6, 1 - (dist - 45) / 40))
-      : Math.min(0.92, Math.max(0, 1 - (dist - 28) / 38))
+      ? Math.min(1, Math.max(0.7, 1 - (dist - 60) / 50))
+      : Math.min(0.95, Math.max(0, 1 - (dist - 50) / 60))
     textRef.current.fillOpacity = opacity
     textRef.current.visible = opacity > 0.01
   })
@@ -455,9 +459,9 @@ function GenreLabel({ genre, camera, isActive, maxTrackCount }) {
       color={genre.color}
       anchorX="center"
       anchorY="bottom"
-      fillOpacity={0.88}
-      outlineWidth={0.07}
-      outlineColor="#020208"
+      fillOpacity={0.95}
+      outlineWidth={0.12}
+      outlineColor="#0e1220"
       outlineOpacity={1}
       depthOffset={-1}
     >
@@ -784,24 +788,24 @@ function BiomeLabels({ genres }) {
       {biomes.map(b => (
         <Html
           key={b.scene}
-          position={[b.x, -1, b.z]}
+          position={[b.x, 3, b.z]}
           center
           style={{
             color: b.color,
-            fontSize: '13px',
+            fontSize: '16px',
             fontFamily: "'JetBrains Mono', monospace",
-            fontWeight: 600,
+            fontWeight: 700,
             textTransform: 'uppercase',
-            letterSpacing: '3px',
-            opacity: 0.6,
+            letterSpacing: '4px',
+            opacity: 0.85,
             whiteSpace: 'nowrap',
             cursor: 'pointer',
             userSelect: 'none',
             transition: 'opacity 0.2s',
-            textShadow: '0 0 12px currentColor, 0 1px 3px rgba(0,0,0,0.9)',
+            textShadow: '0 0 16px currentColor, 0 2px 6px rgba(14,18,32,0.95)',
           }}
           onPointerEnter={(e) => { e.target.style.opacity = '1' }}
-          onPointerLeave={(e) => { e.target.style.opacity = '0.6' }}
+          onPointerLeave={(e) => { e.target.style.opacity = '0.85' }}
           onClick={() => {
             setActiveGenre(b.primary)
             setCameraTarget(b.primary)
