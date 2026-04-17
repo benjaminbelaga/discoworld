@@ -27,15 +27,13 @@ function getInstanceColors(count) {
 }
 
 // Ground plane — dark reflective surface
+// Shadow casters/receivers not in use (no shadowMap enabled on renderer);
+// receiveShadow removed, standard→lambert swap for fewer shader branches.
 function Ground() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]}>
       <planeGeometry args={[300, 300]} />
-      <meshStandardMaterial
-        color="#060610"
-        roughness={0.85}
-        metalness={0.15}
-      />
+      <meshLambertMaterial color="#060610" />
     </mesh>
   )
 }

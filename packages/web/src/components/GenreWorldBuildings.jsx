@@ -88,10 +88,8 @@ export default function GenreWorldBuildings({ genres }) {
             attach="geometry-attributes-instanceColor"
             args={[new Float32Array(boxes.length * 3), 3]}
           />
-          <meshStandardMaterial
+          <meshLambertMaterial
             color="#1a1a2e"
-            roughness={0.7}
-            metalness={0.3}
             emissive="#000000"
             emissiveIntensity={0.4}
             vertexColors
@@ -106,10 +104,8 @@ export default function GenreWorldBuildings({ genres }) {
             attach="geometry-attributes-instanceColor"
             args={[new Float32Array(cylinders.length * 3), 3]}
           />
-          <meshStandardMaterial
+          <meshLambertMaterial
             color="#1a1a2e"
-            roughness={0.7}
-            metalness={0.3}
             emissive="#000000"
             emissiveIntensity={0.4}
             vertexColors
@@ -124,10 +120,8 @@ export default function GenreWorldBuildings({ genres }) {
             attach="geometry-attributes-instanceColor"
             args={[new Float32Array(cones.length * 3), 3]}
           />
-          <meshStandardMaterial
+          <meshLambertMaterial
             color="#1a1a2e"
-            roughness={0.7}
-            metalness={0.3}
             emissive="#000000"
             emissiveIntensity={0.4}
             vertexColors

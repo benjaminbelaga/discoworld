@@ -7,6 +7,10 @@ import useStore from '../stores/useStore'
 // Module-scoped random seed (computed once at import time, pure within render)
 const _mysterySeed = Math.random()
 
+// Shared geometries — allocated once, reused across renders
+const _mysterySphereGeom = new THREE.SphereGeometry(1, 24, 24)
+const _mysteryGlowGeom = new THREE.SphereGeometry(1, 16, 16)
+
 /**
  * Mystery "?" Node — one unlabeled genre sphere per session.
  * Placed near the user's taste center (if collection loaded) or randomly.
@@ -98,11 +102,11 @@ export default function MysteryNode() {
       {/* Main sphere */}
       <mesh
         ref={meshRef}
+        geometry={_mysterySphereGeom}
         onClick={(e) => { e.stopPropagation(); handleClick() }}
         onPointerOver={() => { setHovered(true); document.body.style.cursor = 'pointer' }}
         onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto' }}
       >
-        <sphereGeometry args={[1, 24, 24]} />
         <meshStandardMaterial
           color="#ff00ff"
           emissive="#ff00ff"
@@ -114,8 +118,7 @@ export default function MysteryNode() {
       </mesh>
 
       {/* Outer glow ring */}
-      <mesh ref={glowRef}>
-        <sphereGeometry args={[1, 16, 16]} />
+      <mesh ref={glowRef} geometry={_mysteryGlowGeom}>
         <meshBasicMaterial
           color="#ff44ff"
           transparent
