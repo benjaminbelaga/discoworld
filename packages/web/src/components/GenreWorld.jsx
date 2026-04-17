@@ -394,18 +394,28 @@ function HoverTooltip({ genre }) {
   )
 }
 
-// Billboard genre labels — only for top-tier genres, fade with distance
+// Billboard genre labels — 3-tier LOD (primary/secondary/tertiary) with
+// distance-based fade. Audit 2026-04-17 Agent B: the old `trackCount >= 100`
+// filter silently dropped ~130 genres and erased whole regions (Ambient,
+// Electro). Replaced with a 3-tier system where all genres are eligible;
+// tier determines base size and fade-out distance.
 function GenreLabels({ genres, activeSlug }) {
   const year = useStore(s => s.year)
   const { camera } = useThree()
 
   const { labelGenres, maxTrackCount } = useMemo(() => {
-    // Only show genres with significant track counts — reduces clutter
-    const sorted = genres
-      .filter(g => g.trackCount >= 100)
-      .sort((a, b) => b.trackCount - a.trackCount)
-    const max = sorted.length > 0 ? sorted[0].trackCount : 1
-    return { labelGenres: sorted, maxTrackCount: max }
+    if (genres.length === 0) return { labelGenres: [], maxTrackCount: 1 }
+    const sorted = [...genres].sort((a, b) => b.trackCount - a.trackCount)
+    const max = sorted[0].trackCount || 1
+    // Tier assignment by track-count rank. Independent of the dataset
+    // absolute sizes so it adapts if the corpus grows or shrinks.
+    const t1Cut = Math.min(40, sorted.length)
+    const t2Cut = Math.min(110, sorted.length)
+    const withTier = sorted.map((g, i) => ({
+      ...g,
+      tier: i < t1Cut ? 1 : i < t2Cut ? 2 : 3,
+    }))
+    return { labelGenres: withTier, maxTrackCount: max }
   }, [genres])
 
   return (
@@ -427,24 +437,36 @@ function GenreLabels({ genres, activeSlug }) {
   )
 }
 
+// Per-tier LOD curves (distance in world units, matches camera minDistance=5,
+// maxDistance=120). Tier 3 (tertiary) only readable when zoomed in.
+const TIER_LOD = {
+  1: { fadeStart: 80, fadeEnd: 140, baseSize: 1.4, weightScale: 1.4 },
+  2: { fadeStart: 45, fadeEnd: 80,  baseSize: 0.95, weightScale: 0.7 },
+  3: { fadeStart: 20, fadeEnd: 38,  baseSize: 0.7, weightScale: 0.3 },
+}
+
 function GenreLabel({ genre, camera, isActive, maxTrackCount }) {
   const textRef = useRef()
+  const tier = genre.tier || 2
+  const lod = TIER_LOD[tier]
 
-  // Proportional font size: 1.0–2.4 range (was 0.6–1.2, unreadable at distance).
-  // sqrt weighting lets mega-genres stand out without dominating.
+  // Proportional font size: tier-dependent base + sqrt(trackCount) weighting.
   const weight = Math.sqrt(genre.trackCount / Math.max(maxTrackCount, 1))
-  const fontSize = 1.0 + weight * 1.4
+  const fontSize = lod.baseSize + weight * lod.weightScale
 
   useFrame(() => {
     if (!textRef.current) return
     const dist = camera.position.distanceTo(
       new THREE.Vector3(genre.x, genre.y, genre.z)
     )
-    // Extended visibility range to match larger camera distance (was fade-out
-    // at 28+38=66 units, now 50+60=110 — keeps peripheral labels visible).
-    const opacity = isActive
-      ? Math.min(1, Math.max(0.7, 1 - (dist - 60) / 50))
-      : Math.min(0.95, Math.max(0, 1 - (dist - 50) / 60))
+    const { fadeStart, fadeEnd } = lod
+    let opacity = isActive
+      ? 1
+      : dist <= fadeStart
+        ? 0.95
+        : dist >= fadeEnd
+          ? 0
+          : 0.95 * (1 - (dist - fadeStart) / (fadeEnd - fadeStart))
     textRef.current.fillOpacity = opacity
     textRef.current.visible = opacity > 0.01
   })
@@ -459,7 +481,7 @@ function GenreLabel({ genre, camera, isActive, maxTrackCount }) {
       anchorY="bottom"
       fillOpacity={0.95}
       outlineWidth={0.12}
-      outlineColor="#0e1220"
+      outlineColor="#1c1917"
       outlineOpacity={1}
       depthOffset={-1}
     >
@@ -780,8 +802,13 @@ function BiomeLabels({ genres }) {
     return Object.entries(groups).map(([scene, data]) => {
       const cx = data.genres.reduce((s, g) => s + g.x, 0) / data.genres.length
       const cz = data.genres.reduce((s, g) => s + g.z, 0) / data.genres.length
-      // Pick the most representative genre (highest track count) for selection
-      const primary = data.genres.reduce((best, g) => g.trackCount > best.trackCount ? g : best, data.genres[0])
+      // Representative genre = closest to centroid (audit Agent B bug #3).
+      // Was max-trackCount, which often pulled the camera off-continent.
+      const primary = data.genres.reduce((best, g) => {
+        const dCurr = (g.x - cx) ** 2 + (g.z - cz) ** 2
+        const dBest = (best.x - cx) ** 2 + (best.z - cz) ** 2
+        return dCurr < dBest ? g : best
+      }, data.genres[0])
       return { scene, x: cx, z: cz, color: data.color, count: data.genres.length, primary }
     })
   }, [genres])
@@ -805,7 +832,7 @@ function BiomeLabels({ genres }) {
             cursor: 'pointer',
             userSelect: 'none',
             transition: 'opacity 0.2s',
-            textShadow: '0 0 16px currentColor, 0 2px 6px rgba(14,18,32,0.95)',
+            textShadow: '0 0 16px currentColor, 0 2px 6px rgba(28,25,23,0.95)',
           }}
           onPointerEnter={(e) => { e.target.style.opacity = '1' }}
           onPointerLeave={(e) => { e.target.style.opacity = '0.85' }}
@@ -852,14 +879,16 @@ function DecadeLabels({ genres }) {
           center
           pointerEvents="none"
           style={{
-            color: 'rgba(240, 235, 224, 0.22)',
-            fontSize: '28px',
+            // Audit Agent B bug #4: 22% alpha was effectively invisible.
+            // Raised to 42%, warmed to sand for Night Atlas harmony.
+            color: 'rgba(212, 165, 116, 0.42)',
+            fontSize: '32px',
             fontFamily: "'JetBrains Mono', monospace",
             fontWeight: 700,
             letterSpacing: '6px',
             userSelect: 'none',
             whiteSpace: 'nowrap',
-            textShadow: '0 0 24px rgba(14,18,32,0.9)',
+            textShadow: '0 0 24px rgba(28,25,23,0.9)',
           }}
         >
           {d.label}
