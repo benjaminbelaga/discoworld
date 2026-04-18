@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { enrichGenresWithAtlasColor } from '../lib/colorPalette'
 
 // Load favorites from localStorage
 function loadFavorites() {
@@ -142,7 +143,7 @@ const useStore = create((set, get) => ({
   genres: [],
   releases: [],
   links: [],
-  setGenres: (genres) => set({ genres }),
+  setGenres: (genres) => set({ genres: enrichGenresWithAtlasColor(genres) }),
   setReleases: (releases) => set({ releases }),
   setLinks: (links) => set({ links }),
 

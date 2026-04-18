@@ -9,6 +9,7 @@ import MysteryNode from './MysteryNode'
 import DigPath from './DigPath'
 import LabelConstellation from './LabelConstellation'
 import ArtistThread from './ArtistThread'
+import { GOLD_USER_ACCENT } from '../lib/colorPalette'
 
 // Shared geometry + material refs (created once)
 const _sphere = new THREE.SphereGeometry(1, 24, 24)
@@ -476,7 +477,7 @@ function GenreLabel({ genre, camera, isActive, maxTrackCount }) {
       ref={textRef}
       position={[genre.x, genre.y + Math.min(genre.size, 3.5) + 0.9, genre.z]}
       fontSize={fontSize}
-      color={genre.color}
+      color={isActive ? GOLD_USER_ACCENT : genre.color}
       anchorX="center"
       anchorY="bottom"
       fillOpacity={0.95}
