@@ -1,4 +1,4 @@
-import { useRef, useMemo, useCallback } from 'react'
+import { useRef, useMemo, useCallback, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html, Text } from '@react-three/drei'
 import * as THREE from 'three'
@@ -490,50 +490,136 @@ function GenreLabel({ genre, camera, isActive, maxTrackCount }) {
   )
 }
 
-// Connection lines between genres
+// Connection lines between genres — rendered as a single merged
+// LineSegments mesh (audit 2026-04-17 AGENT-E P0 #1). Was ~200 individual
+// <line> meshes = ~200 draw calls; now 1 draw call. Color + opacity are
+// baked per-vertex (AdditiveBlending ignores alpha, so premultiplying
+// RGB by opacity replicates the original per-edge fade).
+//
+// Two useMemos split the cost:
+//  - geometry: recomputes only when genres/links/year change (expensive
+//    bezier tessellation)
+//  - colors: recomputes when hover/active change (cheap fill pass, no
+//    BufferGeometry rebuild)
+const CURVE_POINTS = 20            // points per bezier curve
+const SEGMENTS_PER_EDGE = CURVE_POINTS - 1
+const VERTS_PER_EDGE = SEGMENTS_PER_EDGE * 2  // LINES draws pairs
+const _grColor = new THREE.Color()
+const _grColor2 = new THREE.Color()
+const _grColorLerp = new THREE.Color()
+
 function GenreLinks({ genres, links, activeSlug, hoveredSlug }) {
   const year = useStore(s => s.year)
+  const meshRef = useRef()
 
-  const lineData = useMemo(() => {
-    return links
-      .filter(l => l.startYear <= year)
-      .map(link => {
-        const source = genres.find(g => g.slug === link.source)
-        const target = genres.find(g => g.slug === link.target)
-        if (!source || !target) return null
-
-        const points = [
-          new THREE.Vector3(source.x, source.y, source.z),
-          new THREE.Vector3(
-            (source.x + target.x) / 2,
-            Math.max(source.y, target.y) + 2,
-            (source.z + target.z) / 2
-          ),
-          new THREE.Vector3(target.x, target.y, target.z),
-        ]
-        const curve = new THREE.QuadraticBezierCurve3(...points)
-        const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(20))
-        const isActive = activeSlug && (link.source === activeSlug || link.target === activeSlug)
-        const isHovered = hoveredSlug && (link.source === hoveredSlug || link.target === hoveredSlug)
-        return { geo, isActive, isHovered, sourceColor: source.color, targetColor: target.color }
+  // Phase 1: geometry + per-edge metadata (stable across hover/active)
+  const { positions, edges } = useMemo(() => {
+    const visibleLinks = links.filter(l => l.startYear <= year)
+    const edgeRecords = []
+    for (const link of visibleLinks) {
+      const source = genres.find(g => g.slug === link.source)
+      const target = genres.find(g => g.slug === link.target)
+      if (!source || !target) continue
+      const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(source.x, source.y, source.z),
+        new THREE.Vector3(
+          (source.x + target.x) / 2,
+          Math.max(source.y, target.y) + 2,
+          (source.z + target.z) / 2
+        ),
+        new THREE.Vector3(target.x, target.y, target.z)
+      )
+      const pts = curve.getPoints(SEGMENTS_PER_EDGE)
+      edgeRecords.push({
+        sourceSlug: link.source,
+        targetSlug: link.target,
+        sourceColor: source.color,
+        targetColor: target.color,
+        points: pts,
       })
-      .filter(Boolean)
-  }, [genres, links, year, activeSlug, hoveredSlug])
+    }
+    // LINES topology: each segment = 2 vertices.
+    const posArr = new Float32Array(edgeRecords.length * VERTS_PER_EDGE * 3)
+    for (let e = 0; e < edgeRecords.length; e++) {
+      const pts = edgeRecords[e].points
+      const base = e * VERTS_PER_EDGE * 3
+      for (let s = 0; s < SEGMENTS_PER_EDGE; s++) {
+        const a = pts[s], b = pts[s + 1]
+        const o = base + s * 6
+        posArr[o    ] = a.x; posArr[o + 1] = a.y; posArr[o + 2] = a.z
+        posArr[o + 3] = b.x; posArr[o + 4] = b.y; posArr[o + 5] = b.z
+      }
+    }
+    return { positions: posArr, edges: edgeRecords }
+  }, [genres, links, year])
+
+  // Phase 2: per-vertex colors. Recomputed when hover/active change but
+  // without rebuilding BufferGeometry — single Float32Array fill.
+  const colors = useMemo(() => {
+    const arr = new Float32Array(edges.length * VERTS_PER_EDGE * 3)
+    for (let e = 0; e < edges.length; e++) {
+      const r = edges[e]
+      const isActive = activeSlug && (r.sourceSlug === activeSlug || r.targetSlug === activeSlug)
+      const isHovered = hoveredSlug && (r.sourceSlug === hoveredSlug || r.targetSlug === hoveredSlug)
+      // Premultiply by opacity (AdditiveBlending makes alpha irrelevant).
+      const opacity = isActive ? 0.35 : isHovered ? 0.2 : 0.06
+      if (isActive || isHovered) {
+        _grColor.set(r.sourceColor)
+        _grColor2.set(r.targetColor)
+      } else {
+        _grColor.setRGB(1, 1, 1)
+        _grColor2.setRGB(1, 1, 1)
+      }
+      const base = e * VERTS_PER_EDGE * 3
+      for (let s = 0; s < SEGMENTS_PER_EDGE; s++) {
+        const tA = s / SEGMENTS_PER_EDGE
+        const tB = (s + 1) / SEGMENTS_PER_EDGE
+        _grColorLerp.copy(_grColor).lerp(_grColor2, tA).multiplyScalar(opacity)
+        const o = base + s * 6
+        arr[o] = _grColorLerp.r; arr[o + 1] = _grColorLerp.g; arr[o + 2] = _grColorLerp.b
+        _grColorLerp.copy(_grColor).lerp(_grColor2, tB).multiplyScalar(opacity)
+        arr[o + 3] = _grColorLerp.r; arr[o + 4] = _grColorLerp.g; arr[o + 5] = _grColorLerp.b
+      }
+    }
+    return arr
+  }, [edges, activeSlug, hoveredSlug])
+
+  // Push color updates to the attribute without geometry rebuild.
+  useEffect(() => {
+    if (!meshRef.current) return
+    const attr = meshRef.current.geometry.getAttribute('color')
+    if (!attr) return
+    attr.array.set(colors)
+    attr.needsUpdate = true
+  }, [colors])
+
+  if (positions.length === 0) return null
 
   return (
-    <group>
-      {lineData.map((d, i) => (
-        <line key={i} geometry={d.geo}>
-          <lineBasicMaterial
-            color={d.isActive || d.isHovered ? d.sourceColor : '#ffffff'}
-            transparent
-            opacity={d.isActive ? 0.35 : d.isHovered ? 0.2 : 0.06}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </line>
-      ))}
-    </group>
+    <lineSegments ref={meshRef} raycast={() => null}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          array={positions}
+          count={positions.length / 3}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          array={colors}
+          count={colors.length / 3}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <lineBasicMaterial
+        vertexColors
+        transparent
+        opacity={1}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </lineSegments>
   )
 }
 
@@ -653,75 +739,83 @@ function AmbientDust({ genres }) {
   )
 }
 
-// Connection lines between genres in the same scene — subtle biome web
+// Connection lines between genres in the same scene — subtle biome web.
+// Merged into a single LineSegments mesh (audit AGENT-E P0 #1). Was
+// ~300 individual <line> primitives = ~300 draw calls; now 1. Opacity
+// is premultiplied into vertex color (AdditiveBlending friendly).
+const SC_OPACITY = 0.07
+const _scColor = new THREE.Color()
+const _scColor2 = new THREE.Color()
+
 function SceneConnections({ genres }) {
   const year = useStore(s => s.year)
 
-  const lines = useMemo(() => {
-    // Group genres by scene
+  const allEdges = useMemo(() => {
     const sceneGroups = {}
-    genres.forEach(g => {
-      if (!sceneGroups[g.scene]) sceneGroups[g.scene] = []
-      sceneGroups[g.scene].push(g)
-    })
-
+    for (const g of genres) {
+      (sceneGroups[g.scene] ||= []).push(g)
+    }
     const result = []
-    Object.values(sceneGroups).forEach(group => {
-      // Connect each genre to others in same scene (avoid duplicates)
+    for (const group of Object.values(sceneGroups)) {
       for (let i = 0; i < group.length; i++) {
         for (let j = i + 1; j < group.length; j++) {
-          const a = group[i]
-          const b = group[j]
-          // Only connect reasonably close genres to avoid visual clutter
-          const dist = Math.sqrt((a.x - b.x) ** 2 + (a.z - b.z) ** 2)
-          if (dist > 30) continue
-
-          const points = new Float32Array([
-            a.x, a.y, a.z,
-            b.x, b.y, b.z
-          ])
-          // Average the two genre colors
-          const c1 = new THREE.Color(a.color)
-          const c2 = new THREE.Color(b.color)
-          c1.lerp(c2, 0.5).multiplyScalar(0.5)
-
+          const a = group[i], b = group[j]
+          if ((a.x - b.x) ** 2 + (a.z - b.z) ** 2 > 900) continue
           result.push({
-            points,
-            color: c1,
-            startYear: Math.max(a.year || 0, b.year || 0)
+            a, b,
+            startYear: Math.max(a.year || 0, b.year || 0),
           })
         }
       }
-    })
+    }
     return result
   }, [genres])
 
-  const visibleLines = useMemo(() => {
-    return lines.filter(l => l.startYear <= year)
-  }, [lines, year])
+  const { positions, colors, count } = useMemo(() => {
+    const visible = allEdges.filter(e => e.startYear <= year)
+    const pos = new Float32Array(visible.length * 6)
+    const col = new Float32Array(visible.length * 6)
+    for (let i = 0; i < visible.length; i++) {
+      const { a, b } = visible[i]
+      const o = i * 6
+      pos[o    ] = a.x; pos[o + 1] = a.y; pos[o + 2] = a.z
+      pos[o + 3] = b.x; pos[o + 4] = b.y; pos[o + 5] = b.z
+      _scColor.set(a.color)
+      _scColor2.set(b.color)
+      _scColor.lerp(_scColor2, 0.5).multiplyScalar(0.5 * SC_OPACITY)
+      col[o    ] = _scColor.r; col[o + 1] = _scColor.g; col[o + 2] = _scColor.b
+      col[o + 3] = _scColor.r; col[o + 4] = _scColor.g; col[o + 5] = _scColor.b
+    }
+    return { positions: pos, colors: col, count: visible.length * 2 }
+  }, [allEdges, year])
+
+  if (count === 0) return null
 
   return (
-    <group>
-      {visibleLines.map((l, i) => (
-        <line key={i}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              array={l.points}
-              count={2}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial
-            color={l.color}
-            transparent
-            opacity={0.07}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </line>
-      ))}
-    </group>
+    <lineSegments raycast={() => null}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          array={positions}
+          count={count}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          array={colors}
+          count={count}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <lineBasicMaterial
+        vertexColors
+        transparent
+        opacity={1}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        toneMapped={false}
+      />
+    </lineSegments>
   )
 }
 
