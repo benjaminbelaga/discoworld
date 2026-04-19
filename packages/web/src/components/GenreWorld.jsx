@@ -383,9 +383,27 @@ function GenreInstances({ genres, onClickGenre, onHoverGenre, activeSlug, hovere
   )
 }
 
-// Glass-morphism hover tooltip
+// Hover tooltip — Night Atlas skin, track preview line (PR-22).
+// Pulls one preview track from the releases dict in the store when a
+// genre is hovered. Disabled on touch devices (no hover) via isMobile
+// guard in the caller.
 function HoverTooltip({ genre }) {
+  const releases = useStore(s => s.releases)
+
+  // Pick one preview track — prefer ones with a YouTube field so the
+  // line reads as a real playable entry. Compute on hover change only.
+  const previewTrack = useMemo(() => {
+    if (!genre || !releases) return null
+    const tracks = releases[genre.slug]
+    if (!tracks || tracks.length === 0) return null
+    return tracks.find(t => t.youtube) || tracks[0]
+  }, [genre, releases])
+
   if (!genre) return null
+
+  const previewLine = previewTrack
+    ? `${previewTrack.artist || '—'} — ${previewTrack.title || previewTrack.name || '…'}`
+    : null
 
   return (
     <Html
@@ -402,6 +420,11 @@ function HoverTooltip({ genre }) {
           <div className="genre-tooltip-meta">Emerged {genre.emerged}</div>
         )}
         <div className="genre-tooltip-meta">{genre.trackCount} tracks</div>
+        {previewLine && (
+          <div className="genre-tooltip-preview" title={previewLine}>
+            {previewLine}
+          </div>
+        )}
       </div>
     </Html>
   )
