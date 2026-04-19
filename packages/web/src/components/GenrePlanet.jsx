@@ -300,11 +300,11 @@ const OCEAN_VERTEX = /* glsl */ `
     // Spherical UV for noise sampling
     float theta = atan(norm.z, norm.x);
     float phi = acos(norm.y);
-    // Multi-octave wave displacement
-    float wave1 = snoise(vec2(theta * 3.0 + uTime * 0.15, phi * 3.0 + uTime * 0.1)) * 0.3;
-    float wave2 = snoise(vec2(theta * 6.0 - uTime * 0.2, phi * 6.0 + uTime * 0.15)) * 0.15;
-    float wave3 = snoise(vec2(theta * 12.0 + uTime * 0.3, phi * 12.0 - uTime * 0.25)) * 0.05;
-    float displacement = wave1 + wave2 + wave3;
+    // Single-octave wave displacement (audit AGENT-E item #12: 3-octave
+    // noise on 18k verts/frame was the biggest GPU cost on planet view;
+    // amplitude compensated to preserve visual body of the ocean).
+    float wave1 = snoise(vec2(theta * 3.0 + uTime * 0.15, phi * 3.0 + uTime * 0.1)) * 0.42;
+    float displacement = wave1;
     pos += norm * displacement;
 
     vNormal = normalize(normalMatrix * normal);

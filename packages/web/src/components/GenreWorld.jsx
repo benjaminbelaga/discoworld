@@ -50,7 +50,11 @@ function Grid() {
   )
 }
 
-// Ground glow rings beneath each scene cluster
+// Ground glow rings beneath each scene cluster.
+// Audit AGENT-E item #5: ringGeometry was allocated inline per map
+// iteration on every render. Now memoized as a pre-built array of
+// (geometry, material) pairs keyed on [genres] — zero reallocation
+// during normal frame updates.
 function GlowRings({ genres }) {
   const ringsRef = useRef()
 
@@ -64,19 +68,26 @@ function GlowRings({ genres }) {
     return Object.entries(groups).map(([scene, data]) => {
       const cx = data.xs.reduce((a, b) => a + b, 0) / data.xs.length
       const cz = data.zs.reduce((a, b) => a + b, 0) / data.zs.length
-      // radius = max distance from centroid + padding
       const maxDist = Math.max(
         ...data.xs.map((x, i) => Math.sqrt((x - cx) ** 2 + (data.zs[i] - cz) ** 2))
       )
-      return { scene, cx, cz, radius: maxDist + 4, color: data.color }
+      const radius = maxDist + 4
+      return {
+        scene, cx, cz, radius, color: data.color,
+        geometry: new THREE.RingGeometry(radius * 0.85, radius, 64),
+      }
     })
   }, [genres])
+
+  // Dispose old geometries when the rings array is replaced.
+  useEffect(() => {
+    return () => { rings.forEach(r => r.geometry.dispose()) }
+  }, [rings])
 
   useFrame((state) => {
     if (!ringsRef.current) return
     const bass = useAudioStore.getState().bass
     ringsRef.current.children.forEach((mesh, i) => {
-      // Subtle pulse, amplified by bass
       const baseAmplitude = 0.02
       const amplitude = baseAmplitude + bass * 0.13
       const s = 1 + Math.sin(state.clock.elapsedTime * 0.3 + i * 1.5) * amplitude
@@ -89,10 +100,10 @@ function GlowRings({ genres }) {
       {rings.map(r => (
         <mesh
           key={r.scene}
+          geometry={r.geometry}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[r.cx, -1.85, r.cz]}
         >
-          <ringGeometry args={[r.radius * 0.85, r.radius, 64]} />
           <meshBasicMaterial
             color={r.color}
             transparent
@@ -925,7 +936,13 @@ function ActiveGenreGlow({ genre }) {
   )
 }
 
-// Genre-colored point lights at major cluster centroids
+// Genre-colored point lights at major cluster centroids.
+// Audit AGENT-E item #3: up to 17 simultaneous point lights compiled into
+// every StandardMaterial shader. Capped to top-3 biggest clusters — the
+// remaining tonal coloring is carried by emissive materials + bloom
+// (post-processing lazy-loaded by PR-12).
+const CLUSTER_LIGHT_CAP = 3
+
 function ClusterLights({ genres }) {
   const lights = useMemo(() => {
     const groups = {}
@@ -938,6 +955,8 @@ function ClusterLights({ genres }) {
     })
     return Object.entries(groups)
       .filter(([, data]) => data.count >= 3)
+      .sort((a, b) => b[1].count - a[1].count)      // biggest clusters first
+      .slice(0, CLUSTER_LIGHT_CAP)
       .map(([scene, data]) => {
         const cx = data.xs.reduce((a, b) => a + b, 0) / data.xs.length
         const cy = Math.max(...data.ys) + 6
