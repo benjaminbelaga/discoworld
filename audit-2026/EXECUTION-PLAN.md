@@ -1,9 +1,10 @@
 # DiscoWorld Execution Plan
 **Last updated:** 2026-04-19 · **Owner:** Benjamin Belaga · **Repo:** `benjaminbelaga/discoworld` (private) · **Prod:** `world.yoyaku.io` on Contabo
 
-> **⏸️ PAUSED 2026-04-19 — product pivot.** Ben has decided the 3D world is premature. We ship a working, useful consumer product first: **YOYAKU Radio** (`yoyaku.io/radio`). DiscoWorld comes back as an OPTIONAL "map mode" layer on top of the Radio backend (phase 4).
+> **⏸️ PAUSED 2026-04-19 — product pivot.** Ben has decided the 3D world is premature. We ship a working, useful consumer product first: **disco.gy** (domain purchased 2026-04-19). DiscoWorld comes back as the 3D companion **`world.disco.gy`** in phase 4 on top of the disco.gy backend.
 >
 > **Active plan:** `~/repos/yoyaku-reco/docs/RADIO-PRODUCT-PLAN.md`
+> **Future prod URL for this codebase:** `world.disco.gy` (replaces current `world.yoyaku.io`, which stays live until migration)
 >
 > Do NOT start any PR below without Ben's explicit go-ahead to resume DiscoWorld. If you are an agent reading this file, switch over to the Radio plan. The shipped DiscoWorld code (PRs #9-#18) stays in prod on `world.yoyaku.io`, untouched.
 
