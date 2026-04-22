@@ -6,7 +6,7 @@
 
 [![DiscoWorld](https://world.yoyaku.io/social-preview.png)](https://world.yoyaku.io)
 
-[![CI](https://github.com/benjaminbelaga/discoworld/actions/workflows/ci.yml/badge.svg)](https://github.com/benjaminbelaga/discoworld/actions)
+[![CI](https://github.com/benjaminbelaga/disco-gy-world/actions/workflows/ci.yml/badge.svg)](https://github.com/benjaminbelaga/disco-gy-world/actions)
 [![AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Data: CC0](https://img.shields.io/badge/data-CC0-green.svg)](DATA-LICENSE.md)
 [![Tests: 346](https://img.shields.io/badge/tests-346-brightgreen.svg)](#testing)
@@ -53,8 +53,8 @@ DiscoWorld maps millions of music releases into an explorable 3D world where spa
 
 ```bash
 # Clone
-git clone https://github.com/benjaminbelaga/discoworld.git
-cd discoworld
+git clone https://github.com/benjaminbelaga/disco-gy-world.git
+cd disco-gy-world
 
 # Frontend
 cd packages/web
